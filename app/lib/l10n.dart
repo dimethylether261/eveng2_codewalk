@@ -144,6 +144,8 @@ abstract class L10n {
   String get g2Code;
   String get g2CodeHelp;
   String get g2NewCode;
+  String get g2CopyCode;
+  String get g2CodeCopied;
   String get developer;
   String get serverUrl;
   String get serverUrlHelp;
@@ -291,6 +293,8 @@ class JaText extends L10n {
   @override String get g2Code => 'ペアリングコード';
   @override String get g2CodeHelp => 'メガネ側の CODEWALK のスマホ画面に、このコードを一度入れるとつながります。コードを知らないアプリやWebページはつながれません。';
   @override String get g2NewCode => '新しいコードにする';
+  @override String get g2CopyCode => 'コピー';
+  @override String get g2CodeCopied => 'コードをコピーしました。Even アプリの CODEWALK の画面に貼り付けてください';
   @override String get developer => '開発者向け';
   @override String get serverUrl => 'サーバーURL（空なら端末内で処理）';
   @override String get serverUrlHelp => 'Python 版サーバーと比べるとき用。エミュレーター: http://10.0.2.2:8000';
@@ -441,6 +445,8 @@ class EnText extends L10n {
   @override String get g2Code => 'Pairing code';
   @override String get g2CodeHelp => 'Enter this code once on the phone page of CODEWALK for the glasses to connect. Apps and web pages without the code cannot connect.';
   @override String get g2NewCode => 'New code';
+  @override String get g2CopyCode => 'Copy';
+  @override String get g2CodeCopied => 'Code copied. Paste it on the CODEWALK page in the Even app';
   @override String get developer => 'Developer';
   @override String get serverUrl => 'Server URL (empty = on this phone)';
   @override String get serverUrlHelp => 'For comparing with the Python server. Emulator: http://10.0.2.2:8000';

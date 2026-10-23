@@ -76,8 +76,8 @@ On this branch, the glasses app has three modes, chosen under the language at th
 
 To link them:
 
-1. In the Android app's Settings, turn on **Show radio calls on Even G2**. A **pairing code** (like `ABCD-EFGH`) shows under it.
-2. Open CODEWALK in the Even app. While linked, the phone page shows the link status and a field for the code. Enter the code and tap **Connect**. Case and the hyphen don't matter. The code is remembered.
+1. In the Android app's Settings, turn on **Show radio calls on Even G2**. A **pairing code** (like `ABCD-EFGH`) shows under it. Tap **Copy**.
+2. Open CODEWALK in the Even app. While linked, the phone page shows the link status and a field for the code. Paste (or type) the code and tap **Connect**. Case and the hyphen don't matter. The code is remembered.
 
 The link stays on the phone: the Android app answers only requests from the phone itself (`127.0.0.1`), and only those that carry the code. A web page open in the phone's browser therefore can't read your walk or send commands. After 30 wrong codes the Android app refuses everything for 5 minutes. To pair again from scratch, tap **New code** in its settings and enter the new code. Details: section 3.3 of [design.md](../design.md) (Japanese).
 

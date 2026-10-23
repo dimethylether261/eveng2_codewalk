@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../backend_host.dart';
@@ -285,6 +286,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(t.g2Code, style: Theme.of(context).textTheme.labelLarge),
                   SelectableText(formatCode(s.g2Code), style: mono.copyWith(fontSize: 22, letterSpacing: 2)),
                 ]),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: formatCode(s.g2Code)));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.g2CodeCopied)));
+                },
+                child: Text(t.g2CopyCode),
               ),
               TextButton(onPressed: s.renewG2Code, child: Text(t.g2NewCode)),
             ]),
