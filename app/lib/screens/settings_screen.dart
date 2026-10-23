@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../api.dart';
 import '../backend_host.dart';
@@ -127,6 +128,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!await _confirmDelete(t.clearLogTitle, t.clearLogBody)) return;
     await widget.log.clear();
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.logCleared)));
+  }
+
+  Future<void> _shareWalkLog() async {
+    final files = await widget.host.walkLog.files();
+    if (files.isEmpty) return;
+    await SharePlus.instance.share(ShareParams(files: [for (final f in files) XFile(f.path, mimeType: 'application/json')]));
+  }
+
+  Future<void> _clearWalkLog() async {
+    if (!await _confirmDelete(t.clearWalkLogTitle, t.clearWalkLogBody)) return;
+    await widget.host.walkLog.clear();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.walkLogCleared)));
   }
 
   @override
@@ -269,6 +282,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(t.simulateHelp),
             value: s.simulate,
             onChanged: (v) => s.simulate = v,
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(t.walkLog),
+            subtitle: Text(t.walkLogHelp),
+            value: s.recordWalkLog,
+            onChanged: (v) => s.recordWalkLog = v,
+          ),
+          ListenableBuilder(
+            listenable: widget.host.walkLog,
+            builder: (context, _) => FutureBuilder(
+              future: widget.host.walkLog.files(),
+              builder: (context, snap) {
+                final n = snap.data?.length ?? 0;
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(t.walkLogCount(n), style: const TextStyle(fontSize: 12)),
+                  Wrap(children: [
+                    TextButton.icon(
+                      onPressed: n == 0 ? null : _shareWalkLog,
+                      icon: const Icon(Icons.share_outlined),
+                      label: Text(t.shareWalkLog),
+                    ),
+                    TextButton.icon(
+                      onPressed: n == 0 ? null : _clearWalkLog,
+                      style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                      icon: const Icon(Icons.delete_outline),
+                      label: Text(t.clearWalkLog),
+                    ),
+                  ]),
+                ]);
+              },
+            ),
           ),
           const SizedBox(height: 16),
           Text(t.aiNotice, style: const TextStyle(fontSize: 12)),

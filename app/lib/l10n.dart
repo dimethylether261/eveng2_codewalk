@@ -144,6 +144,14 @@ abstract class L10n {
   String get serverUnreachable;
   String get simulate;
   String get simulateHelp;
+  String get walkLog;
+  String get walkLogHelp;
+  String walkLogCount(int n);
+  String get shareWalkLog;
+  String get clearWalkLog;
+  String get clearWalkLogTitle;
+  String get clearWalkLogBody;
+  String get walkLogCleared;
   String get privacy;
 }
 
@@ -279,6 +287,14 @@ class JaText extends L10n {
   @override String get serverUnreachable => '接続できません';
   @override String get simulate => '開発モード（位置をシミュレート）';
   @override String get simulateHelp => 'GPSの代わりに、散歩画面で地図を長押しした地点を現在地にします。切り替えは散歩を終えてから';
+  @override String get walkLog => '散歩ログを記録';
+  @override String get walkLogHelp => '改善のために、散歩ごとの移動経路、無線の着信、会話づくりの成功・失敗と API の使用量をこの端末にファイルで残します。外部には送りません。次の散歩から記録します';
+  @override String walkLogCount(int n) => '散歩ログ: $n 件';
+  @override String get shareWalkLog => '散歩ログを共有';
+  @override String get clearWalkLog => '散歩ログをすべて消す';
+  @override String get clearWalkLogTitle => '散歩ログを消しますか？';
+  @override String get clearWalkLogBody => '記録したすべての散歩ログが消えます。元に戻せません。無線ログと会話のキャッシュは残ります。';
+  @override String get walkLogCleared => '散歩ログを消しました';
   @override String get privacy => '無線ログと位置の履歴はこの端末内だけに保存されます。外部に送るのは、近くのスポットを調べるための現在地'
       '（OpenStreetMap・Wikipedia へ）と、調べるスポットの名前・場所（Claude へ）だけです。';
 }
@@ -417,6 +433,14 @@ class EnText extends L10n {
   @override String get serverUnreachable => 'Cannot connect';
   @override String get simulate => 'Dev mode (simulate location)';
   @override String get simulateHelp => 'Instead of GPS, long-press the map on the walk screen to set your position. Switch after ending a walk';
+  @override String get walkLog => 'Keep a walk log';
+  @override String get walkLogHelp => 'To help improve the app, keeps a file on this phone for each walk: your route, the calls, whether each conversation was written or failed, and the API usage. Nothing is sent anywhere. Starts with the next walk';
+  @override String walkLogCount(int n) => 'Walk logs: $n';
+  @override String get shareWalkLog => 'Share the walk logs';
+  @override String get clearWalkLog => 'Delete all walk logs';
+  @override String get clearWalkLogTitle => 'Delete the walk logs?';
+  @override String get clearWalkLogBody => 'Every walk log will be deleted. This cannot be undone. The call log and the conversation cache stay.';
+  @override String get walkLogCleared => 'Walk logs deleted';
   @override String get privacy => 'Your radio log and location history stay on this phone. Only your current position (to OpenStreetMap and Wikipedia, '
       'to find nearby spots) and the names and locations of spots being researched (to Claude) leave it.';
 }

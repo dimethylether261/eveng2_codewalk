@@ -69,6 +69,7 @@ class Engine {
     http.Client? client,
     this.log = print,
     this.onUsage,
+    this.onEvent,
     int nowConcurrency = 2,
   })  : _http = client ?? http.Client(),
         _semNow = _Semaphore(nowConcurrency),
@@ -84,6 +85,10 @@ class Engine {
 
   /// Called after each finished generation with its usage summary (to total up API spend).
   final void Function(Json usage)? onUsage;
+
+  /// Called after each finished generation or town discovery with what happened (the phone app's walk log):
+  /// `{'type': 'generation' | 'discover', 'outcome': ..., 'ms': ..., 'usage': ...}` and the spot.
+  final void Function(Json event)? onEvent;
 
   Claude? _llm;
   // Two lanes: "now" for what the user is standing at, and a single background slot for
@@ -219,15 +224,26 @@ class Engine {
   Future<void> _runDiscover(Json town, Claude llm) async {
     final usage = Usage();
     final id = town['id'] as String;
+    final started = DateTime.now();
+    var event = <String, dynamic>{'outcome': 'error'};
     try {
       _finder ??= discover.PlaceFinder(_http, userAgent);
       final found = await discover.discover(llm.withUsage(usage), town, _finder!, store.spotsWithPrefix('osm:'));
       store.putArea('discover:$id', found);
       log('discovered ${found.length} web landmarks in ${town['name']}: ${found.map((x) => x['name']).join(', ')}');
+      event = {'outcome': 'ready', 'found': found.length};
     } catch (e) {
       log('discovery failed for ${town['name']}: $e'); // best effort; retry after an hour
       _discoverFailed[id] = DateTime.now();
+      event = {'outcome': 'error', 'reason': '$e'};
     } finally {
+      onEvent?.call({
+        'type': 'discover',
+        'spot': {'id': id, 'name': town['name']},
+        ...event,
+        'ms': DateTime.now().difference(started).inMilliseconds,
+        'usage': usage.summary(),
+      });
       if (usage.steps.isNotEmpty) {
         log('usage discover ${town['name']}: ${usage.describe()}');
         onUsage?.call(usage.summary());
@@ -303,28 +319,48 @@ class Engine {
     await sem.acquire();
     final key = '${spot['id']}|$slot';
     final usage = Usage();
+    DateTime? started;
+    Json? event;
     try {
       if (job.cancelled) return; // moved to the fast lane while waiting
       job.started = true;
+      started = DateTime.now();
       try {
         final image = await fetchImage(_http, spot['wikidata'] as String?, userAgent);
         final dialogue = await pipeline.generate(llm.withUsage(usage), spot, theme, image: image, told: told, lang: lang);
         dialogue['usage'] = usage.summary();
         store.putDialogue(spot['id'] as String, slot, 'ready', dialogue: dialogue);
+        event = {'outcome': 'ready', 'review': dialogue['review'], 'lines': (dialogue['lines'] as List).length};
       } on Unavailable catch (e) {
         store.putDialogue(spot['id'] as String, slot, 'unavailable', reason: e.reason);
+        event = {'outcome': 'unavailable', 'reason': e.reason};
       } on ClaudeRefused {
         store.putDialogue(spot['id'] as String, slot, 'unavailable', reason: 'refused');
+        event = {'outcome': 'unavailable', 'reason': 'refused'};
       } on ClaudeError catch (e) {
         log('generation failed for $key: $e');
         store.putDialogue(spot['id'] as String, slot, 'error', reason: e.badKey ? 'bad_key' : 'api_error');
+        event = {'outcome': 'error', 'reason': e.badKey ? 'bad_key' : 'api_error', 'detail': '$e'};
       } catch (e, st) {
         // keep the engine alive; retry after errorTtlS
         log('generation failed for $key: $e\n$st');
         store.putDialogue(spot['id'] as String, slot, 'error', reason: e.runtimeType.toString());
+        event = {'outcome': 'error', 'reason': e.runtimeType.toString(), 'detail': '$e'};
       }
     } finally {
       sem.release();
+      if (started != null) {
+        onEvent?.call({
+          'type': 'generation',
+          'spot': {'id': spot['id'], 'name': spot['name'], 'kind': spot['kind'] ?? 'spot'},
+          'theme': theme,
+          'slot': slot,
+          'prefetch': !job.urgent,
+          ...?event,
+          'ms': DateTime.now().difference(started).inMilliseconds,
+          'usage': usage.summary(),
+        });
+      }
       if (usage.steps.isNotEmpty) {
         log('usage ${spot['name']}/$theme (${spot['id']})${job.urgent ? '' : ' [prefetch]'}: ${usage.describe()}');
         onUsage?.call(usage.summary());

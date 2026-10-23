@@ -12,6 +12,7 @@ import 'models.dart';
 import 'radio_session.dart';
 import 'radar.dart';
 import 'stores.dart';
+import 'walk_log.dart';
 
 class Notifier {
   final _plugin = FlutterLocalNotificationsPlugin();
@@ -79,6 +80,7 @@ class WalkController extends ChangeNotifier {
   final Map<String, DateTime> _lastPoll = {};
 
   Backend get _api => host.backend;
+  WalkLog get _walkLog => host.walkLog;
 
   /// Reasons that mean "fix the settings", not "this spot has nothing to say".
   static const _keyProblems = {'no_api_key', 'bad_key'};
@@ -105,6 +107,14 @@ class WalkController extends ChangeNotifier {
       unawaited(_listen(forceLocationManager: false));
     }
     walking = true;
+    _walkLog.startWalk({
+      'simulate': settings.simulate,
+      'server': settings.serverUrl.isNotEmpty,
+      'lang': settings.lang,
+      'themes': settings.themes,
+      'frequency': settings.frequency.name,
+      'restrict_sources': settings.restrictSources,
+    });
     walkedM = 0;
     _walkStartedAt = DateTime.now();
     callsThisWalk = 0;
@@ -137,8 +147,10 @@ class WalkController extends ChangeNotifier {
           enableWakeLock: true,
         ),
       ),
-    ).listen((p) => _onPosition(p.latitude, p.longitude, p.speed < 0 ? 0 : p.speed), onError: (Object e) {
+    ).listen((p) => _onPosition(p.latitude, p.longitude, p.speed < 0 ? 0 : p.speed, accuracy: p.accuracy),
+        onError: (Object e) {
       debugPrint('position stream error (forceLocationManager=$forceLocationManager): $e');
+      _walkLog.event('location_error', {'error': '$e', 'location_manager': forceLocationManager});
       if (!forceLocationManager && e is LocationServiceDisabledException && walking) {
         unawaited(_listen(forceLocationManager: true));
         return;
@@ -151,6 +163,7 @@ class WalkController extends ChangeNotifier {
     await _sub?.cancel();
     _sub = null;
     _tick?.cancel();
+    if (walking) _walkLog.event('walk_end', {'walked_m': walkedM.round(), 'calls': callsThisWalk});
     walking = false;
     _setStatus('');
   }
@@ -158,7 +171,15 @@ class WalkController extends ChangeNotifier {
   /// Developer mode: jump to a point (as if walking there).
   void simulateMove(double toLat, double toLon) => _onPosition(toLat, toLon, 1.2);
 
-  void _onPosition(double newLat, double newLon, double speed) {
+  void _onPosition(double newLat, double newLon, double speed, {double? accuracy}) {
+    if (walking) {
+      _walkLog.event('pos', {
+        'lat': _round6(newLat),
+        'lon': _round6(newLon),
+        'speed': (speed * 10).round() / 10,
+        if (accuracy != null) 'accuracy_m': accuracy.round(),
+      });
+    }
     if (lat != null && lon != null && walking) {
       final d = distanceM(lat!, lon!, newLat, newLon);
       if (d < 500) walkedM += d; // ignore jumps (simulated teleports, GPS glitches)
@@ -253,6 +274,7 @@ class WalkController extends ChangeNotifier {
       final (r, skip) = await _api.bestDialogue([for (final s in candidates) s.id], _themes, settings.codename,
           rounds: log.heardCounts, lang: settings.lang);
       _unavailable.addAll(skip); // not enough sourced facts there: stay silent
+      if (skip.isNotEmpty) _walkLog.event('skip', {'spots': skip});
       switch (r) {
         case DialogueReady(:final dialogue):
           _ring(dialogue);
@@ -261,9 +283,11 @@ class WalkController extends ChangeNotifier {
               ? t.researchingNearby(candidates.length)
               : t.researchingSpot(candidates.first.displayName));
         case DialogueUnavailable(:final reason):
+          _walkLog.event('unavailable', {'spots': [for (final s in candidates) s.id], 'reason': reason});
           if (_keyProblems.contains(reason)) _keyProblem(reason);
       }
-    } catch (_) {
+    } catch (e) {
+      _walkLog.event('ask_error', {'error': '$e'});
       _setStatus(t.offlineRetry);
     } finally {
       _asking = false;
@@ -284,13 +308,15 @@ class WalkController extends ChangeNotifier {
         case DialoguePending():
           _setStatus(spot.kind == 'area' ? t.researchingTown(spot.displayName) : t.researchingSpot(spot.displayName));
         case DialogueUnavailable(:final reason):
+          _walkLog.event('unavailable', {'spots': [spot.id], 'reason': reason});
           if (_keyProblems.contains(reason)) {
             _keyProblem(reason);
           } else if (reason != 'temporary_error') {
             _unavailable.add(spot.id); // not enough sourced facts: stay silent
           }
       }
-    } catch (_) {
+    } catch (e) {
+      _walkLog.event('ask_error', {'error': '$e'});
       _setStatus(t.offlineRetry);
     } finally {
       _asking = false;
@@ -299,8 +325,15 @@ class WalkController extends ChangeNotifier {
 
   Future<void> _fetchSpots(double la, double lo) async {
     _fetching = true;
+    final started = DateTime.now();
     try {
       spots = await _api.spots(la, lo);
+      _walkLog.event('spots', {
+        'lat': _round6(la),
+        'lon': _round6(lo),
+        'count': spots.length,
+        'ms': DateTime.now().difference(started).inMilliseconds,
+      });
       _fetchLat = la;
       _fetchLon = lo;
       _fetchAt = DateTime.now();
@@ -315,7 +348,8 @@ class WalkController extends ChangeNotifier {
       await _fetchArea(la, lo);
       await _prepareChat(la, lo);
       if (incoming == null) _setStatus(t.standingBy);
-    } catch (_) {
+    } catch (e) {
+      _walkLog.event('spots_error', {'error': '$e', 'ms': DateTime.now().difference(started).inMilliseconds});
       _setStatus(t.areaUnavailable);
       _fetchAt = DateTime.now().subtract(refetchInterval - const Duration(seconds: 30));
       _fetchLat = la;
@@ -329,6 +363,7 @@ class WalkController extends ChangeNotifier {
     try {
       final a = await _api.area(la, lo);
       final isNew = a != null && a.id != area?.id;
+      if (isNew) _walkLog.event('area', {'id': a.id, 'name': a.name});
       area = a;
       final heard = {...log.recentlyHeard(DateTime.now(), revisitAfter), ..._unavailable};
       if (isNew && !heard.contains(a.id)) {
@@ -372,6 +407,7 @@ class WalkController extends ChangeNotifier {
     _ringLon = lon;
     _lastCallAt = DateTime.now();
     callsThisWalk++;
+    _walkLog.event('ring', _callInfo(d));
     _setStatus('');
     if (appInForeground) {
       HapticFeedback.heavyImpact();
@@ -387,6 +423,7 @@ class WalkController extends ChangeNotifier {
     if (d == null) return null;
     _autoLater?.cancel();
     incoming = null;
+    _walkLog.event('answer', _callInfo(d));
     unawaited(notifier.clear());
     notifyListeners();
     return log.add(d, played: true, heardLat: _ringLat, heardLon: _ringLon);
@@ -398,15 +435,22 @@ class WalkController extends ChangeNotifier {
     if (d == null) return;
     _autoLater?.cancel();
     incoming = null;
+    _walkLog.event('later', {..._callInfo(d), 'auto': auto});
     unawaited(notifier.clear());
     _setStatus(auto ? t.savedToLogAuto : t.savedToLog);
     await log.add(d, played: false, heardLat: _ringLat, heardLon: _ringLon);
   }
 
   void _setStatus(String s) {
+    if (walking && s != status) _walkLog.event('status', {'text': s});
     status = s;
     notifyListeners();
   }
+
+  static double _round6(double v) => (v * 1e6).round() / 1e6;
+
+  /// What the walk log keeps about a call.
+  Map<String, dynamic> _callInfo(Dialogue d) => {'spot': d.spotId, 'name': d.spotName, 'theme': d.theme};
 
   @override
   void dispose() {

@@ -149,6 +149,13 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Developer option: keep a walk log on this phone (route, calls, generations, API usage). Off by default.
+  bool get recordWalkLog => _prefs.getBool('recordWalkLog') ?? false;
+  set recordWalkLog(bool v) {
+    _prefs.setBool('recordWalkLog', v);
+    notifyListeners();
+  }
+
   /// Developer mode: long-press the map to move the simulated position.
   bool get simulate => _prefs.getBool('simulate') ?? false;
   set simulate(bool v) {
