@@ -992,6 +992,40 @@ void main() {
       await e.idle();
     });
 
+    test('each generation reports its outcome, cost per step and research yield (the walk log)', () async {
+      Future<Json> generationEvent(FakeClaude f) async {
+        final events = <Json>[];
+        final e = Engine(
+          store: await openStore(null),
+          apiKey: 'x',
+          config: const EngineConfig(escalateResearchModel: ''),
+          userAgent: 'test',
+          client: fakeHttp(f),
+          log: (_) {},
+          onEvent: events.add,
+        );
+        final spots = await e.spots(35.6226, 139.7389);
+        await waitReady(e, spots.firstWhere((x) => x['name'] == '品川神社')['id'] as String, ['history']);
+        await e.idle();
+        return events.singleWhere((x) => x['type'] == 'generation');
+      }
+
+      final ready = await generationEvent(FakeClaude());
+      expect(ready['outcome'], 'ready');
+      expect(ready['generated_at'], isA<String>());
+      expect(ready['prefetch'], isFalse);
+      final steps = ((ready['usage'] as Map)['steps'] as List).cast<Json>();
+      expect(steps.map((s) => s['step']), containsAllInOrder(['research', 'dialogue', 'check', 'review']));
+      expect(steps.first['facts'], 2);
+      expect(steps.first, containsPair('cache_read', 0));
+      expect(steps.first['ms'], isA<int>());
+      expect(steps.first['stop_reason'], 'end_turn');
+
+      final none = await generationEvent(FakeClaude(blocks: factsBlocks(1)));
+      expect(none, containsPair('reason', 'insufficient_sources'));
+      expect((((none['usage'] as Map)['steps'] as List).single as Map)['facts'], 1);
+    });
+
     test('a key that checks out clears earlier bad_key failures', () async {
       final e = await makeEngine(FakeClaude());
       final spots = await e.spots(35.6226, 139.7389);

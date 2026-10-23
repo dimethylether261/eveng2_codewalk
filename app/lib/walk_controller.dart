@@ -450,7 +450,13 @@ class WalkController extends ChangeNotifier {
   static double _round6(double v) => (v * 1e6).round() / 1e6;
 
   /// What the walk log keeps about a call.
-  Map<String, dynamic> _callInfo(Dialogue d) => {'spot': d.spotId, 'name': d.spotName, 'theme': d.theme};
+  Map<String, dynamic> _callInfo(Dialogue d) => {
+        'spot': d.spotId,
+        'name': d.spotName,
+        'theme': d.theme,
+        'generated_at': d.generatedAt,
+        'usd': d.usd,
+      };
 
   @override
   void dispose() {

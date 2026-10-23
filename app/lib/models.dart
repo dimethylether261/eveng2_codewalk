@@ -131,6 +131,8 @@ class Dialogue {
     required this.lines,
     required this.sources,
     this.image,
+    this.generatedAt,
+    this.usd,
   });
 
   final String spotId;
@@ -148,6 +150,10 @@ class Dialogue {
   final List<Source> sources;
   final SpotImage? image;
 
+  /// When the engine wrote it (UTC ISO 8601), and its estimated API cost: the walk log ties calls to generations.
+  final String? generatedAt;
+  final double? usd;
+
   Speaker speaker(String id) => id == commander.id ? commander : specialist;
 
   factory Dialogue.fromJson(Map<String, dynamic> j) {
@@ -164,6 +170,8 @@ class Dialogue {
       lines: (j['lines'] as List).map((e) => DialogueLine.fromJson(e as Map<String, dynamic>)).toList(),
       sources: (j['sources'] as List).map((e) => Source.fromJson(e as Map<String, dynamic>)).toList(),
       image: SpotImage.fromJson(j['image'] as Map<String, dynamic>?),
+      generatedAt: j['generated_at'] as String?,
+      usd: ((j['usage'] as Map?)?['usd'] as num?)?.toDouble(),
     );
   }
 
@@ -175,6 +183,8 @@ class Dialogue {
         'lines': lines.map((e) => e.toJson()).toList(),
         'sources': sources.map((e) => e.toJson()).toList(),
         'image': image?.toJson(),
+        if (generatedAt != null) 'generated_at': generatedAt,
+        if (usd != null) 'usage': {'usd': usd},
       };
 }
 

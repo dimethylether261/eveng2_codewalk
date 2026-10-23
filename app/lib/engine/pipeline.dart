@@ -137,7 +137,11 @@ Future<(List<Json>, List<Json>)> collectFacts(Claude llm, Json spot, String them
     {String? model, List<String> told = const []}) async {
   final user = researchUser(spot, theme, wikipediaUrl(spot['wikipedia'] as String?), told: told);
   final blocks = await llm.research(researchSystem, user, researchTools(llm.config), model: model);
-  return extractFacts(blocks);
+  final found = extractFacts(blocks);
+  // How much this research yielded, next to what it cost (the walk log; a paused turn's last request).
+  final last = llm.usage?.steps.lastOrNull;
+  if (last != null && last['step'] == 'research') last['facts'] = found.$1.length;
+  return found;
 }
 
 String? pickTheme(Json spot, List<String> requested) {

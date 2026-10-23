@@ -330,7 +330,12 @@ class Engine {
         final dialogue = await pipeline.generate(llm.withUsage(usage), spot, theme, image: image, told: told, lang: lang);
         dialogue['usage'] = usage.summary();
         store.putDialogue(spot['id'] as String, slot, 'ready', dialogue: dialogue);
-        event = {'outcome': 'ready', 'review': dialogue['review'], 'lines': (dialogue['lines'] as List).length};
+        event = {
+          'outcome': 'ready',
+          'generated_at': dialogue['generated_at'],
+          'review': dialogue['review'],
+          'lines': (dialogue['lines'] as List).length,
+        };
       } on Unavailable catch (e) {
         store.putDialogue(spot['id'] as String, slot, 'unavailable', reason: e.reason);
         event = {'outcome': 'unavailable', 'reason': e.reason};

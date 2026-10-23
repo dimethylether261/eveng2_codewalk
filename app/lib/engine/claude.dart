@@ -105,7 +105,8 @@ double? claudeCost(String model, int inp, int out, int cacheWrite, int cacheRead
 class Usage {
   final steps = <Json>[];
 
-  void record(String step, String model, Json? u) {
+  /// [ms]: the request's time including retries; [retries]: how many times it was sent again.
+  void record(String step, String model, Json? u, {int? ms, int retries = 0, String? stopReason}) {
     if (u == null) return;
     int n(String k) => (u[k] as num?)?.toInt() ?? 0;
     final stu = u['server_tool_use'] as Map?;
@@ -116,11 +117,16 @@ class Usage {
     steps.add({
       'step': step,
       'model': model,
-      'input': inp + cw + cr,
+      'input': inp + cw + cr, // all input tokens; the cache's share below
+      'cache_write': cw,
+      'cache_read': cr,
       'output': out,
       'searches': searches,
       'fetches': fetches,
       'usd': claudeCost(model, inp, out, cw, cr, searches),
+      'ms': ?ms,
+      if (retries > 0) 'retries': retries,
+      'stop_reason': ?stopReason,
     });
   }
 
@@ -178,6 +184,7 @@ class Claude {
       body['fallbacks'] = 'default';
     }
     final encoded = jsonEncode(body);
+    final started = DateTime.now();
     // Retry like the official SDKs: 408/409/429/5xx and network errors, with backoff.
     for (var attempt = 0;; attempt++) {
       http.Response r;
@@ -204,7 +211,10 @@ class Claude {
       if (r.statusCode != 200) {
         throw ClaudeError(r.statusCode, ((j['error'] as Map?)?['message'] ?? r.body) as String);
       }
-      usage?.record(step, (j['model'] as String?) ?? model, j['usage'] as Json?);
+      usage?.record(step, (j['model'] as String?) ?? model, j['usage'] as Json?,
+          ms: DateTime.now().difference(started).inMilliseconds,
+          retries: attempt,
+          stopReason: j['stop_reason'] as String?);
       return j;
     }
   }
