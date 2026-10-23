@@ -147,9 +147,3 @@ Phone
 - Character portraits ship in `public/characters/`, named after the characters (`PORTRAIT_FILES` in `src/photo.ts`). To use your own, see [Character portraits](../README.md#character-portraits).
 
 The Even app's continuous location updates arrive only once after they start, so the app asks for a fix every 5 seconds. It also can't tell when the phone screen goes off: the WebView stays "visible".
-
-### Not yet confirmed on real hardware
-
-- Whether timers keep running while walking with the phone screen off. If they stop, no calls come in during that time.
-- Whether Japanese text wraps on the glasses as it does in the simulator (about 27 characters per line).
-- Which of SCROLL_TOP / SCROLL_BOTTOM a swipe up or down sends.
