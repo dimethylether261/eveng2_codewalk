@@ -4,6 +4,7 @@ import '../api.dart';
 import '../backend_host.dart';
 import '../radio_widgets.dart';
 import '../engine/claude.dart';
+import '../g2_bridge.dart';
 import '../models.dart';
 import '../l10n.dart';
 import '../stores.dart';
@@ -11,9 +12,10 @@ import 'character_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen(
-      {super.key, required this.settings, required this.host, required this.log, required this.onClearCache});
+      {super.key, required this.settings, required this.host, required this.g2, required this.log, required this.onClearCache});
   final AppSettings settings;
   final BackendHost host;
+  final G2Bridge g2;
   final LogStore log;
 
   /// Deletes the conversation cache (WalkController.clearCache: the walk forgets it too).
@@ -130,7 +132,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    widget.g2.onClients = () {
+      if (mounted) setState(() {});
+    };
+  }
+
+  @override
   void dispose() {
+    widget.g2.onClients = null;
     _codename.dispose();
     _server.dispose();
     _apiKey.dispose();
@@ -252,6 +263,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: Text(t.clearCache),
             ),
           ),
+          const Divider(height: 40),
+          Text('Even G2', style: Theme.of(context).textTheme.titleMedium),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(t.showOnG2),
+            subtitle: Text(!s.g2Enabled
+                ? t.off
+                : widget.g2.clients > 0
+                    ? t.g2Connected
+                    : t.g2Waiting),
+            value: s.g2Enabled,
+            onChanged: (v) => s.g2Enabled = v,
+          ),
+          Text(t.g2Help, style: const TextStyle(fontSize: 12)),
+          if (s.g2Enabled) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(t.g2Code, style: Theme.of(context).textTheme.labelLarge),
+                  SelectableText(formatCode(s.g2Code), style: mono.copyWith(fontSize: 22, letterSpacing: 2)),
+                ]),
+              ),
+              TextButton(onPressed: s.renewG2Code, child: Text(t.g2NewCode)),
+            ]),
+            Text(t.g2CodeHelp, style: const TextStyle(fontSize: 12)),
+          ],
           const Divider(height: 40),
           Text(t.developer, style: Theme.of(context).textTheme.titleMedium),
           TextField(

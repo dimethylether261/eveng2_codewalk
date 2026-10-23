@@ -4,10 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 import 'api.dart';
 import 'backend_host.dart';
+import 'radio_widgets.dart' show portraitPng;
+import 'engine/characters.dart' as engine_chars;
+import 'g2_bridge.dart';
 import 'l10n.dart';
+import 'minimap.dart';
 import 'models.dart';
 import 'radio_session.dart';
 import 'radar.dart';
@@ -47,14 +52,145 @@ class Notifier {
 }
 
 class WalkController extends ChangeNotifier {
-  WalkController(this.settings, this.log, this.notifier, this.host);
+  WalkController(this.settings, this.log, this.notifier, this.host) {
+    minimap = MiniMap(userAgent: settings.userAgent);
+    g2 = G2Bridge(
+        state: g2State,
+        onCommand: g2Command,
+        token: () => settings.g2Code,
+        roads: minimap.roadsJson,
+        photo: _callPhoto,
+        portrait: _portrait)
+      ..onConnect = _fetchRoads;
+    addListener(g2.changed);
+    session.addListener(g2.changed);
+    settings.addListener(_syncG2);
+    _syncG2();
+  }
 
   final AppSettings settings;
   final BackendHost host;
 
-  /// The call being played on the radio screen.
+  /// The call being played (phone radio screen and glasses share it).
   final session = RadioSession();
 
+  /// Link to the CODEWALK app on Even G2 (see g2/).
+  late final G2Bridge g2;
+
+  /// Roads and heard places for the minimap on the glasses.
+  late final MiniMap minimap;
+
+  void _syncG2() {
+    if (settings.g2Enabled && !g2.running) {
+      g2.start().catchError((Object e) => debugPrint('[g2] could not listen: $e'));
+    } else if (!settings.g2Enabled && g2.running) {
+      unawaited(g2.stop());
+    }
+  }
+
+  /// What the glasses show (the g2/ app renders it).
+  Map<String, dynamic> g2State() {
+    Map<String, dynamic> sp(Speaker s) => {'id': s.id, 'name': s.name, 'frequency': s.frequency};
+    final inc = incoming;
+    final d = session.dialogue;
+    final la = lat, lo = lon;
+    return {
+      'v': 1,
+      // Waiting screen minimap: only while walking; heard places only (never unheard spots).
+      'map': walking && la != null && lo != null
+          ? minimap.state(la, lo, [for (final e in log.inRange(settings.pinRange, DateTime.now())) (e.pinLat, e.pinLon)])
+          : null,
+      'walking': walking,
+      'status': status,
+      'codename': settings.codename,
+      'lang': settings.lang,
+      'freq': engine_chars.commander.frequency,
+      'stats': {'walkedM': walkedM.round()},
+      'incoming': inc == null
+          ? null
+          : {'spot': inc.spotName, 'area': inc.isArea, 'commander': sp(inc.commander), 'specialist': sp(inc.specialist)},
+      'call': d == null
+          ? null
+          : {
+              'spot': d.spotName,
+              'commander': sp(d.commander),
+              'specialist': sp(d.specialist),
+              'lines': [
+                for (final l in d.lines) {'id': l.speaker, 'who': d.speaker(l.speaker).name, 'text': l.text},
+              ],
+              'index': session.index,
+              'finished': session.finished,
+              'sources': [for (final s in d.sources) s.title],
+              // The glasses fetch the picture from /photo; the credit goes on their sources page.
+              'photo': d.image == null ? null : {'key': d.image!.url.hashCode, 'credit': '${d.image!.author} / ${d.image!.license}'},
+            },
+    };
+  }
+
+  final _portraits = <String, List<int>>{};
+
+  /// Character portraits for the glasses (the bundled PNGs in assets/characters/, cached per id).
+  Future<List<int>?> _portrait(String id) async {
+    final cached = _portraits[id];
+    if (cached != null) return cached;
+    final png = await portraitPng(id);
+    if (png != null) _portraits[id] = png;
+    return png;
+  }
+
+  (String, (List<int>, String))? _photoCache;
+
+  /// The photo of the call being played, fetched once (Wikimedia Commons thumbnail, ~800 px).
+  Future<(List<int>, String)?> _callPhoto() async {
+    final url = session.dialogue?.image?.url;
+    if (url == null) return null;
+    final cached = _photoCache;
+    if (cached != null && cached.$1 == url) return cached.$2;
+    try {
+      final r = await http.get(Uri.parse(url), headers: {'User-Agent': settings.userAgent}).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return null;
+      final photo = (r.bodyBytes as List<int>, r.headers['content-type'] ?? 'image/jpeg');
+      _photoCache = (url, photo);
+      return photo;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Roads for the glasses minimap — only while walking with glasses connected (no extra map traffic otherwise).
+  void _fetchRoads() {
+    final la = lat, lo = lon;
+    if (!walking || la == null || lo == null || g2.clients == 0) return;
+    // The tile under the user first; the tiles around call g2.changed as they arrive.
+    unawaited(minimap.maybeFetchRoads(la, lo, onMore: g2.changed).then((fresh) {
+      if (fresh) g2.changed();
+    }));
+  }
+
+  /// A command from the glasses.
+  Future<void> g2Command(String cmd) async {
+    switch (cmd) {
+      case 'answer':
+        if (incoming == null) return;
+        final entry = await answer();
+        if (entry != null) session.start(entry.dialogue);
+      case 'later':
+        if (incoming != null) await later();
+      case 'next':
+        session.next();
+      case 'prev':
+        session.prev();
+      case 'end':
+        session.end();
+      case 'walk': // a long press on the ring: start or end the walk from the glasses
+        if (walking) {
+          await stop();
+        } else {
+          final err = await start();
+          if (err != null) _setStatus(err); // e.g. location off: shown on the glasses' status line
+        }
+    }
+  }
   final LogStore log;
   final Notifier notifier;
 
@@ -110,7 +246,10 @@ class WalkController extends ChangeNotifier {
     callsThisWalk = 0;
     _setStatus(settings.simulate ? t.devModeHint : t.standingBy);
     _tick = Timer.periodic(const Duration(seconds: 8), (_) => _evaluate());
-    if (lat != null && lon != null) unawaited(_evaluate());
+    if (lat != null && lon != null) {
+      _fetchRoads(); // the minimap needs no new position to start
+      unawaited(_evaluate());
+    }
     return null;
   }
 
@@ -166,6 +305,9 @@ class WalkController extends ChangeNotifier {
     lat = newLat;
     lon = newLon;
     speedMps = speed;
+    if (walking) {
+      _fetchRoads();
+    }
     notifyListeners();
     if (walking) unawaited(_evaluate());
   }
@@ -413,6 +555,8 @@ class WalkController extends ChangeNotifier {
     _sub?.cancel();
     _tick?.cancel();
     _autoLater?.cancel();
+    settings.removeListener(_syncG2);
+    unawaited(g2.stop());
     super.dispose();
   }
 }

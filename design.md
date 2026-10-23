@@ -8,10 +8,10 @@
 
 | アプリ | 場所 | 技術 | 役割 |
 | --- | --- | --- | --- |
-| スマホ版 | `app/` | Flutter（Android） | 位置の取得、スポット探し、会話づくり、無線ログ、設定（スマホの画面だけで使う） |
-| メガネ版 | `g2/` | TypeScript（Even Hub アプリ。Even アプリの WebView で動く） | Even G2 への表示と操作。会話づくりまでこのアプリの中で行う（Even Hub ストア版） |
+| スマホ版 | `app/` | Flutter（Android） | 位置の取得、スポット探し、会話づくり、無線ログ、設定。メガネに状態を配信する |
+| メガネ版 | `g2/` | TypeScript（Even Hub アプリ。Even アプリの WebView で動く） | Even G2 への表示と操作。スマホ版と連携するか、単体で会話づくりまで行う |
 
-2つのアプリはつながりません。メガネ版はいつも単体で動きます。
+このブランチ（`phone-link`）では、2つのアプリが同じスマホの中でつながります（連携モード）。Even Hub ストアに出す版は `main` ブランチで作り、そちらはいつも単体で動きます。
 
 会話を作る中核（`app/lib/engine/` と散歩の判断 `app/lib/radar.dart`）は Dart で書かれていて、スマホ版はそのまま、メガネ版は JavaScript に変換して使います。どちらで動いても、同じ場所では同じ考え方で無線が鳴ります。
 
@@ -26,10 +26,11 @@ flowchart LR
         core2["会話の中核（JS に変換）<br/>public/codewalk_core.js"]
       end
     end
+    codewalk -- "連携モード<br/>127.0.0.1:8765" --> g2app
   end
   g2app -- "BLE（Even アプリ経由）" --> glasses["Even G2"]
   core1 --> ext["外部サービス<br/>Claude / OpenStreetMap / Wikipedia / Wikidata / Nominatim / Photon / OpenFreeMap"]
-  core2 --> ext
+  core2 -. "単体モード" .-> ext
 ```
 
 その他のディレクトリ:
@@ -53,6 +54,7 @@ flowchart TB
     wc["WalkController<br/>walk_controller.dart"]
     radar["鳴らす判断<br/>radar.dart"]
     session["再生中の通話<br/>RadioSession"]
+    mini["ミニマップ<br/>minimap.dart"]
   end
 
   subgraph data["保存"]
@@ -69,9 +71,12 @@ flowchart TB
     claude["Claude API<br/>claude.dart"]
   end
 
+  bridge["G2Bridge<br/>g2_bridge.dart<br/>HTTP + WebSocket 127.0.0.1:8765"]
+
   gps["位置（geolocator）"] --> wc
   wc --> radar
   wc --> session
+  wc --> mini
   wc --> logstore
   wc --> host --> engine
   engine --> pipe --> claude
@@ -80,11 +85,15 @@ flowchart TB
   ui --> wc
   settings --> appset
   appset --> host
+  wc --> bridge
+  session --> bridge
+  bridge --> glassesApp["メガネ版（連携モード）"]
   wc --> notif["通知（flutter_local_notifications）"]
 ```
 
 - **WalkController** が散歩の中心です。位置が届くたびと8秒ごとに `_evaluate` を回し、スポットの取り直し、鳴らす候補の選定、会話の依頼、着信を行います。
 - **radar.dart** は Flutter に依存しない判断だけを持ちます（どのスポットを、いつ鳴らすか）。テストしやすくするためと、メガネ版でも同じ判断を使うためです。
+- **G2Bridge** は、メガネ版から見た「スマホ」です。状態（`g2State()`）を WebSocket と HTTP で配り、メガネからの操作（answer / later / next / prev / end / walk）を受けます。顔の画像、スポットの写真、ミニマップの道路も、ここから渡します。受け付けるのは同じスマホの中（`127.0.0.1`）からだけで、さらに次の3つで守ります（3.3）。
 - 画面を消していても位置を取り続けるため、Android の常駐通知（フォアグラウンドサービス）を使います。
 
 ## 3. メガネ版のアーキテクチャ
@@ -95,8 +104,11 @@ flowchart TB
     main["main.ts<br/>描画の制御・操作の受け渡し"]
     render["render.ts<br/>状態 → 画面（純粋な関数）"]
     images["minimap.ts / photo.ts<br/>ミニマップ・写真・顔の画像"]
-    lang["lang.ts / onboarding.ts<br/>言語の選択・初回の案内"]
-    localLink["LocalLink（local.ts）<br/>中核に位置と保存をつなぐ"]
+    lang["lang.ts / mode.ts / onboarding.ts<br/>言語と接続モードの選択"]
+    subgraph sources["状態の出どころ（どちらか1つ）"]
+      phoneLink["PhoneLink（link.ts）<br/>スマホ版に接続"]
+      localLink["LocalLink（local.ts）<br/>単体で動く"]
+    end
     core["中核 codewalk_core.js<br/>（app/lib/standalone/walk_core.dart を変換）"]
     companion["スマホ側の画面<br/>companion.ts（設定・ログ）"]
   end
@@ -106,7 +118,9 @@ flowchart TB
   lang --> main
   main --> render --> main
   main --> images
+  main --> phoneLink
   main --> localLink
+  phoneLink -- "127.0.0.1:8765" --> codewalkApp["スマホ版 CODEWALK"]
   localLink --> core
   core --> ext["Claude / OpenStreetMap / Wikipedia / Wikidata / Nominatim / Photon / OpenFreeMap"]
   localLink --> companion
@@ -114,33 +128,50 @@ flowchart TB
   main -- "表示・操作" --> sdk --> glasses
 ```
 
-### 3.1 起動と設定
+### 3.1 2つのモード
 
-- 状態は、アプリ内の中核（`codewalk_core.js`）から LocalLink が受け取ります。設定と無線ログは、Even アプリで開くスマホ側の画面（`companion.ts`、「散歩」「無線ログ」「設定」の3つのタブ）にあります。無線ログはスマホ版と同じ「今日 / 今週 / すべて」で絞り込みます（中核の `LogRange`）。
-- 言語は、スマホ側の画面の一番上で選びます（`lang.ts`）。
-- 初回の起動では、何かを始める前に、言語（日英併記）→ はじめる前の案内（API キーと、画面を消して歩くときの設定）の順で出します（`onboarding.ts`）。
-- 状態の形は `WalkState`（`render.ts`）で、`render.ts` はこれだけを見て画面を決めます。
+| モード | 状態の出どころ | 会話づくり | 設定・ログ |
+| --- | --- | --- | --- |
+| スマホ連携 | PhoneLink: スマホ版の `127.0.0.1:8765`（WebSocket、切れたら3秒ごとの取得） | スマホ版 | スマホ版 |
+| メガネ単体 | LocalLink: アプリ内の中核（`codewalk_core.js`） | このアプリの中 | Even アプリで開くスマホ側の画面 |
 
-### 3.2 中核
+- メガネ単体のスマホ側の画面（`companion.ts`）は「散歩」「無線ログ」「設定」の3つのタブです。無線ログはスマホ版と同じ「今日 / 今週 / すべて」で絞り込みます（中核の `LogRange`）。連携中のスマホ側の画面（`phone_page.ts`）は、つながり具合とペアリングコードの欄だけです。
+- 言語はスマホ側の画面の一番上（`lang.ts`）、接続モード（自動 / 連携 / 単体）はその下（`mode.ts`）で選びます。連携中の言語はスマホ版の設定に従います。**自動**は、ソースを選ぶたび（起動時とモード変更時）にスマホ版の `/hello` を1.5秒だけ確かめ、応答があれば連携、なければ単体にします。
+- 初回の起動では、何かを始める前に、言語（日英併記）→ 使い方（接続モード）の順で案内します（`onboarding.ts`）。
+- どちらのモードでも状態の形は同じ（`WalkState`）なので、`render.ts` は出どころを気にしません。
+
+### 3.2 単体モードの中核
 
 `app/lib/standalone/walk_core.dart` は、スマホ版の WalkController と同じ流れを Flutter なしで書いたものです。`js_main.dart` が `globalThis.createCodewalkCore(host, storeJson, logJson, settingsJson)` を JavaScript に公開し、`g2/scripts/build_core.mjs` が `dart compile js` で `g2/public/codewalk_core.js` を作ります（約430KB）。
 
-| 中核が使うもの | 中身 |
+| 中核が使うもの | 単体モードでの中身 |
 | --- | --- |
 | 位置 | Even Hub SDK の位置取得。連続取得（`startAppLocationUpdates`）は開始直後の1回しか届かないため、5秒ごとに `getAppLocation` で聞く。画面オフ中も取るには、Even アプリの「バックグラウンドタスク」で「常時表示の通知」をオンにする必要がある |
-| 保存 | Even Hub SDK の保存（`cw.settings` / `cw.store` / `cw.log` / `cw.spend` / `cw.lang`） |
+| 保存 | Even Hub SDK の保存（`cw.settings` / `cw.store` / `cw.log` / `cw.spend` / `cw.lang` / `cw.mode` / `cw.pair`） |
 | 外部への通信 | WebView の fetch。`app.json` の通信許可リストに全ホストを書く |
 | キャラクター画像 | `g2/public/characters/` にキャラクター名のファイルで同梱（グレースケールに縮小）。作り方は README の「キャラクターの肖像」 |
 
 ブラウザから外部サービスを呼ぶため、ブラウザで動くときだけ次を付けます（`app/lib/engine/util.dart` の `isWeb`）: Wikimedia には `origin=*` と `Api-User-Agent`、Claude には `anthropic-dangerous-direct-browser-access`。Nominatim には、User-Agent の代わりに `email=` で名乗ります（`util.dart` の `appContactEmail`。空なら利用者が設定した連絡先のメールアドレス）。
 
-### 3.3 メガネの画面
+
+### 3.3 連携の守り
+
+スマホ版の G2Bridge は同じスマホの中（`127.0.0.1`）からしか受け付けませんが、同じスマホのブラウザで開いた Web ページも `127.0.0.1` に届きます。散歩の状態（ミニマップの基準の座標＝おおよその現在地、スポット名）を読まれたり、操作を送られたりしないよう、次の3つで守ります（`app/lib/g2_bridge.dart`）。
+
+| 守り | 中身 |
+| --- | --- |
+| ペアリングコード | スマホ版が最初に作る8文字（約40ビット、`ABCD-EFGH` の形）。設定の「Even G2」に出し、メガネ版のスマホ側の画面で一度入れる（`cw.pair` に保存）。すべての要求に `?t=` で付け、違えば 401。設定から作り直せる（作り直したら入れ直す） |
+| 総当たりの対策 | 違うコードが合わせて30回になったら、5分間すべてを 429 で断る。正しいコードでも回数は戻さない（正規の接続の合間に試されないように）。メガネ版は 401 / 429 を受けたら再接続をやめ、コードの入力を待つ |
+| Host の確認 | `Host` が `127.0.0.1` か `localhost` でなければ 403（DNS リバインディング対策） |
+
+コードなしで答えるのは `/hello`（`{"app":"codewalk"}` だけ）で、メガネ版が「自動」のときにスマホ版の有無を確かめるのに使います。失敗の回数にも数えません。
+### 3.4 メガネの画面
 
 画面は5種類で、`render(state)` が決めます。
 
 | 画面 | いつ | 中身 | 操作 |
 | --- | --- | --- | --- |
-| offline | 状態がない | 準備中の案内（初回は言語選びの案内） | ダブルタップで終了 |
+| offline | 状態がない | スマホ版とつながっていない案内（初回は言語と接続モードの案内） | ダブルタップで終了 |
 | idle | 待機中 | 状態の一文、ミニマップ、歩いた距離 | — |
 | incoming | 着信 | CALL（10秒間点滅）、司令の顔、周波数、スポット名 | タップ: 応答、スワイプ: あとで |
 | call | 会話中 | 前のセリフ（暗め）、顔＋周波数、いまのセリフの枠、写真、名前、進み具合 | タップ: 次へ、スワイプ: 戻る |

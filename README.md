@@ -6,6 +6,8 @@ A walking companion that talks to you over the "radio". When you pass near a pla
 
 It runs on **Even G2** smart glasses as an Even Hub app (calls, conversations and sources show on the glasses). There is also an Android app.
 
+> **This branch (`phone-link`)** links the two apps: with the Android app running on the same phone, the glasses app shows the Android app's calls instead of running on its own. The Even Hub store build is made from `main`, where the glasses app always runs on its own; don't package a store build from this branch.
+
 | Waiting | Incoming call | Conversation | Sources |
 | --- | --- | --- | --- |
 | ![Waiting screen with the minimap](g2/store/screenshots/en/01_waiting.png) | ![Incoming call](g2/store/screenshots/en/02_incoming.png) | ![Conversation with a portrait and a photo](g2/store/screenshots/en/03_call_first.png) | ![Sources and photo credit](g2/store/screenshots/en/05_sources.png) |
@@ -25,7 +27,7 @@ It runs on **Even G2** smart glasses as an Even Hub app (calls, conversations an
 
 ### Even G2 (glasses)
 
-The glasses app runs on its own, with no other app needed, on iPhone or Android. See [g2/README.md](g2/README.md) to build, install and use it.
+The glasses app runs on its own, with no other app needed, on iPhone or Android. On this branch it can also be linked to the Android app (see [Linked to the Android app](g2/README.md#linked-to-the-android-app)). See [g2/README.md](g2/README.md) to build, install and use it.
 
 ### Android app
 
@@ -43,6 +45,7 @@ In the app's Settings:
 - **Claude API**: enter your key and tap "Save and check". The key is stored in the Android Keystore.
 - **Only use Wikipedia and the Agency for Cultural Affairs**: off by default. With it off, city, news and travel sites are used too, so more places get calls, but some of those sources are less reliable.
 - **Contact (optional)**: Wikipedia and OpenStreetMap ask apps to identify themselves. Your email or URL goes into the User-Agent.
+- **Show radio calls on Even G2**: on by default. The glasses app connects once you enter the **pairing code** shown under it (see [Linked to the Android app](g2/README.md#linked-to-the-android-app)).
 - **Dev mode (simulate location)**: long-press the map to set your position. On an emulator, `adb emu geo fix <lon> <lat>` also works.
 
 ### Try the conversation engine from a PC

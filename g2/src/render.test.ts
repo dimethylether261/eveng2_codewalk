@@ -146,13 +146,13 @@ describe('english', () => {
     expect(text(inc, 'info')).toBe('Call from Commander\n147.20 ▶ 146.35 Owl\n\nTown trivia: Shinagawa Shrine')
     expect(text(inc, 'hint')).toBe('Tap: answer / Swipe: later')
     expect(text(render({ ...en, call: { ...call, finished: true } }), 'hint')).toBe('Tap: end call / Swipe: back')
-    expect(text(render(null, 'en'), 'body')).toContain('Getting CODEWALK ready')
-    expect(text(render(null), 'body')).toContain('準備しています')
+    expect(text(render(null, 'en'), 'body')).toContain('Not connected')
+    expect(text(render(null), 'body')).toContain('つながっていません')
   })
 
   it('first launch: the glasses point to the phone page, in both languages', () => {
     const s = setupScreen()
-    expect(text(s, 'body')).toContain('言語を選んで')
+    expect(text(s, 'body')).toContain('言語と接続モード')
     expect(text(s, 'body')).toContain('Choose the language')
     checkLayout(s)
   })

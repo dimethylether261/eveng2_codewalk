@@ -74,6 +74,13 @@ class _WalkScreenState extends State<WalkScreen> {
         .push(MaterialPageRoute(builder: (_) => RadioScreen(dialogue: entry.dialogue, session: walk.session)));
   }
 
+  /// A call answered on the glasses: show it on the phone too, at the same line.
+  Future<void> _openSession() async {
+    final d = walk.session.dialogue;
+    if (d == null) return;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => RadioScreen(dialogue: d, session: walk.session)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -143,6 +150,16 @@ class _WalkScreenState extends State<WalkScreen> {
                   ),
                 ],
                 const Spacer(),
+                if (walk.session.active && ModalRoute.of(context)?.isCurrent == true)
+                  Card(
+                    color: const Color(0xFF0A1F12),
+                    child: ListTile(
+                      leading: const Icon(Icons.visibility, color: Color(0xFF3CFF7A)),
+                      title: Text(t.playingOnG2(walk.session.dialogue!.spotName), style: const TextStyle(color: Colors.white)),
+                      subtitle: Text(t.tapToShowOnPhone, style: const TextStyle(color: Colors.white70)),
+                      onTap: _openSession,
+                    ),
+                  ),
                 if (walk.incoming != null) _IncomingCard(dialogue: walk.incoming!, onAnswer: _answer, onLater: walk.later),
               ]),
             ),

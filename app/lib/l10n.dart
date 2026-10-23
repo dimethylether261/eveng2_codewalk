@@ -30,6 +30,8 @@ abstract class L10n {
   String get defaultCodename;
 
   // Walk screen
+  String playingOnG2(String spot);
+  String get tapToShowOnPhone;
   String get startWalk;
   String get endWalk;
   String get walking;
@@ -134,6 +136,14 @@ abstract class L10n {
   String get restrictSourcesHelp;
   String get contact;
   String get contactHelp;
+  String get showOnG2;
+  String get off;
+  String get g2Connected;
+  String get g2Waiting;
+  String get g2Help;
+  String get g2Code;
+  String get g2CodeHelp;
+  String get g2NewCode;
   String get developer;
   String get serverUrl;
   String get serverUrlHelp;
@@ -168,6 +178,8 @@ class JaText extends L10n {
       };
   @override String get defaultCodename => 'ウォーカー';
 
+  @override String playingOnG2(String spot) => 'G2で再生中：$spot';
+  @override String get tapToShowOnPhone => 'タップでスマホにも表示';
   @override String get startWalk => '散歩をはじめる';
   @override String get endWalk => '散歩を終える';
   @override String get walking => '散歩中 ';
@@ -269,6 +281,16 @@ class JaText extends L10n {
   @override String get restrictSourcesHelp => 'オフ: 自治体や新聞、観光サイトなども使います。Wikipedia にない場所でも無線が入りやすくなりますが、口コミ系のサイトも混ざります';
   @override String get contact => '連絡先（任意）';
   @override String get contactHelp => 'Wikipedia と OpenStreetMap は、利用者の連絡先（メールやURL）を伝えることを求めています';
+  @override String get showOnG2 => 'Even G2 に無線を表示する';
+  @override String get off => 'オフ';
+  @override String get g2Connected => 'メガネ側の CODEWALK とつながっています';
+  @override String get g2Waiting => 'Even アプリで CODEWALK（Even Hub アプリ）を開くとつながります';
+  @override String get g2Help => 'メガネで着信を受け、タップでセリフを送れます。スマホの無線画面とは同じ位置で同期します。'
+      '待機中は、道路・現在地・無線を聞いた場所のミニマップを出します（地図データ © OpenStreetMap contributors、© OpenMapTiles）。'
+      'この端末の中だけでつながり、外部には送りません。';
+  @override String get g2Code => 'ペアリングコード';
+  @override String get g2CodeHelp => 'メガネ側の CODEWALK のスマホ画面に、このコードを一度入れるとつながります。コードを知らないアプリやWebページはつながれません。';
+  @override String get g2NewCode => '新しいコードにする';
   @override String get developer => '開発者向け';
   @override String get serverUrl => 'サーバーURL（空なら端末内で処理）';
   @override String get serverUrlHelp => 'Python 版サーバーと比べるとき用。エミュレーター: http://10.0.2.2:8000';
@@ -306,6 +328,8 @@ class EnText extends L10n {
       };
   @override String get defaultCodename => 'Walker';
 
+  @override String playingOnG2(String spot) => 'Playing on G2: $spot';
+  @override String get tapToShowOnPhone => 'Tap to show it on the phone too';
   @override String get startWalk => 'Start walk';
   @override String get endWalk => 'End walk';
   @override String get walking => 'Walking ';
@@ -407,6 +431,16 @@ class EnText extends L10n {
   @override String get restrictSourcesHelp => 'Off: also uses city sites, news and travel sites. More places get calls, but review-type sites may be mixed in';
   @override String get contact => 'Contact (optional)';
   @override String get contactHelp => 'Wikipedia and OpenStreetMap ask apps to include a contact (email or URL)';
+  @override String get showOnG2 => 'Show radio calls on Even G2';
+  @override String get off => 'Off';
+  @override String get g2Connected => 'Connected to CODEWALK on the glasses';
+  @override String get g2Waiting => 'Open CODEWALK (Even Hub app) in the Even app to connect';
+  @override String get g2Help => 'Answer calls on the glasses and tap through the lines; the phone screen stays in sync. '
+      'While waiting, a minimap shows roads, your position and places where you heard calls (map data © OpenStreetMap contributors, © OpenMapTiles). '
+      'The link stays on this phone and sends nothing outside.';
+  @override String get g2Code => 'Pairing code';
+  @override String get g2CodeHelp => 'Enter this code once on the phone page of CODEWALK for the glasses to connect. Apps and web pages without the code cannot connect.';
+  @override String get g2NewCode => 'New code';
   @override String get developer => 'Developer';
   @override String get serverUrl => 'Server URL (empty = on this phone)';
   @override String get serverUrlHelp => 'For comparing with the Python server. Emulator: http://10.0.2.2:8000';

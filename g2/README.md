@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-The Even Hub app that brings CODEWALK to Even G2 glasses: radio calls about places nearby, the conversation and its sources, right in front of you. It runs on its own. Finding places and writing conversations happen inside this app, so no other app is needed, on iPhone or Android.
+The Even Hub app that brings CODEWALK to Even G2 glasses: radio calls about places nearby, the conversation and its sources, right in front of you. It runs on its own: finding places and writing conversations happen inside this app, so no other app is needed, on iPhone or Android. On this branch (`phone-link`) it can also show the calls of the CODEWALK Android app running on the same phone (see [Linked to the Android app](#linked-to-the-android-app)).
 
 For what CODEWALK is, and what you should know before using it (AI-generated content, your own Claude API key, the data sent out), see the [main README](../README.md).
 
@@ -63,6 +63,23 @@ Some details:
 - **Sources**: the sources of the conversation, and the photo's author and license.
 
 The glasses show a single green colour and a single font, so portraits and photos are reduced to their 16 shades, with a bit of radio-style noise.
+
+### Linked to the Android app
+
+On this branch, the glasses app has three modes, chosen under the language at the top of the phone page (and on first launch):
+
+| Mode | What happens |
+| --- | --- |
+| Auto (default) | Linked when the CODEWALK Android app runs on this phone, otherwise glasses only. Checked at launch and when the mode changes. |
+| Linked | The Android app finds places, writes the conversations, and keeps the settings and the call log. The glasses app only shows its calls and sends your gestures back. |
+| Glasses only | As described above. |
+
+To link them:
+
+1. In the Android app's Settings, turn on **Show radio calls on Even G2**. A **pairing code** (like `ABCD-EFGH`) shows under it.
+2. Open CODEWALK in the Even app. While linked, the phone page shows the link status and a field for the code. Enter the code and tap **Connect**. Case and the hyphen don't matter. The code is remembered.
+
+The link stays on the phone: the Android app answers only requests from the phone itself (`127.0.0.1`), and only those that carry the code. A web page open in the phone's browser therefore can't read your walk or send commands. After 30 wrong codes the Android app refuses everything for 5 minutes. To pair again from scratch, tap **New code** in its settings and enter the new code. Details: section 3.3 of [design.md](../design.md) (Japanese).
 
 ### Walking with the phone screen off
 

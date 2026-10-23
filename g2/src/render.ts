@@ -8,13 +8,14 @@ import { PHOTO_H, PHOTO_W } from './photo'
 
 export type Speaker = { id?: string; name: string; frequency: string }
 
-/** State from the core in this app (app/lib/standalone/walk_core.dart, g2State). */
+/** State from the CODEWALK phone app (app/lib/walk_controller.dart, g2State) or, glasses only, from
+ * the core in this app (app/lib/standalone/walk_core.dart, same shape). */
 export type Lang = 'ja' | 'en'
 
 /** Glasses texts per language (the state carries the language chosen on the phone page). */
 export const TEXT = {
   ja: {
-    offline: 'CODEWALK を準備しています…',
+    offline: 'スマホの CODEWALK とつながっていません\n\nスマホの画面でペアリングコードを入れるか\n接続モードを「メガネ単体」に',
     exitHint: 'ダブルタップ: 終了',
     more: (n: number) => `ほか${n}件`,
     photo: '写真: ',
@@ -30,7 +31,7 @@ export const TEXT = {
     walked: (d: string) => `散歩 ${d}`,
   },
   en: {
-    offline: 'Getting CODEWALK ready…',
+    offline: 'Not connected to CODEWALK on your phone\n\nEnter the pairing code on the phone page,\nor switch the mode to glasses only',
     exitHint: 'Double-tap: exit',
     more: (n: number) => `+${n} more`,
     photo: 'Photo: ',
@@ -105,7 +106,7 @@ export type Screen = {
   portrait: string | null
 }
 
-/** What a tap / swipe does in each mode (sent as a command to the core). */
+/** What a tap / swipe does in each mode (sent as a command to the phone app or the core). */
 /** ringhold: a long press on the ring (the temples' long press is left to the system). */
 export type Gesture = 'tap' | 'up' | 'down' | 'ringhold'
 
@@ -136,12 +137,12 @@ function card(mode: Mode, title: string, body: string, hint: string): Screen {
   }
 }
 
-/** First launch: the phone page asks for the language (both languages: none is chosen yet). */
+/** First launch: the phone page asks for the language and the mode (both languages: none is chosen yet). */
 export function setupScreen(): Screen {
   return card(
     'offline',
     'CODEWALK',
-    'スマホの画面で、言語を選んでください\n\nChoose the language on your phone',
+    'スマホの画面で、言語と接続モードを\n選んでください\n\nChoose the language and the mode\non your phone',
     'ダブルタップ: 終了 / Double tap: exit',
   )
 }
@@ -289,7 +290,7 @@ export function layoutKey(s: Screen): string {
   ].join('|')
 }
 
-/** Command for the core, or null when the gesture does nothing in this mode. */
+/** Command for the phone app or the core, or null when the gesture does nothing in this mode. */
 export function command(mode: Mode, g: Gesture): string | null {
   switch (mode) {
     case 'incoming':

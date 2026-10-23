@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:codewalk/engine/vector_tiles.dart' as tiles;
+import 'package:codewalk/g2_bridge.dart';
 import 'package:codewalk/minimap.dart';
 import 'package:codewalk/models.dart';
 import 'package:codewalk/radio_session.dart';
@@ -85,6 +87,112 @@ void main() {
     expect((s.finished, s.index), (false, 1));
     s.end();
     expect(s.active, isFalse);
+  });
+
+  test('bridge: state over WebSocket and HTTP, commands from the glasses', () async {
+    final session = RadioSession();
+    final commands = <String>[];
+    late G2Bridge bridge;
+    bridge = G2Bridge(
+      port: 0,
+      token: () => 'ABCD2345',
+      state: () => {
+        'call': session.dialogue == null ? null : {'index': session.index, 'finished': session.finished},
+      },
+      onCommand: (c) {
+        commands.add(c);
+        if (c == 'next') session.next();
+      },
+    );
+    session.addListener(bridge.changed);
+    await bridge.start();
+    final port = bridge.boundPort!;
+
+    final ws = await WebSocket.connect('ws://127.0.0.1:$port/ws?t=abcd-2345'); // as typed: case and hyphen do not matter
+    final messages = StreamController<Map<String, dynamic>>();
+    ws.listen((m) => messages.add(jsonDecode(m as String) as Map<String, dynamic>));
+    final it = StreamIterator(messages.stream);
+    expect(await it.moveNext(), isTrue);
+    expect(it.current['call'], isNull); // initial state on connect
+
+    session.start(dialogue());
+    expect(await it.moveNext(), isTrue);
+    expect(it.current['call'], {'index': 0, 'finished': false});
+
+    ws.add(jsonEncode({'cmd': 'next'}));
+    expect(await it.moveNext(), isTrue);
+    expect(it.current['call'], {'index': 1, 'finished': false});
+    ws.add(jsonEncode({'cmd': 'rm -rf'})); // unknown commands are ignored
+
+    final http = HttpClient();
+    final res = await (await http.getUrl(Uri.parse('http://127.0.0.1:$port/state?t=ABCD2345'))).close();
+    expect(res.headers.value('access-control-allow-origin'), '*');
+    expect(jsonDecode(await utf8.decodeStream(res))['call'], {'index': 1, 'finished': false});
+    final cmd = await (await http.getUrl(Uri.parse('http://127.0.0.1:$port/cmd?c=later&t=ABCD2345'))).close();
+    await cmd.drain<void>();
+    final walk = await (await http.getUrl(Uri.parse('http://127.0.0.1:$port/cmd?c=walk&t=ABCD2345'))).close(); // ring long press
+    await walk.drain<void>();
+    expect(commands, ['next', 'later', 'walk']);
+    http.close();
+    await ws.close();
+    await bridge.stop();
+  });
+
+  test('bridge: serves the current call photo, 404 when there is none', () async {
+    (List<int>, String)? current = ([1, 2, 3], 'image/jpeg');
+    final bridge = G2Bridge(port: 0, token: () => 'ABCD2345', state: () => {}, onCommand: (_) {}, photo: () async => current);
+    await bridge.start();
+    final http = HttpClient();
+    Future<HttpClientResponse> get() async =>
+        (await http.getUrl(Uri.parse('http://127.0.0.1:${bridge.boundPort}/photo?t=ABCD2345'))).close();
+    var res = await get();
+    expect(res.statusCode, 200);
+    expect(res.headers.contentType?.mimeType, 'image/jpeg');
+    expect(res.headers.value('access-control-allow-origin'), '*');
+    expect(await res.fold<List<int>>([], (a, b) => a..addAll(b)), [1, 2, 3]);
+    current = null;
+    res = await get();
+    expect(res.statusCode, 404);
+    await res.drain<void>();
+    http.close();
+    await bridge.stop();
+  });
+
+  test('bridge: only with the pairing code, for 127.0.0.1, and not after many wrong codes', () async {
+    final commands = <String>[];
+    final bridge = G2Bridge(port: 0, token: () => 'ABCD2345', state: () => {'walking': true}, onCommand: commands.add);
+    await bridge.start();
+    final http = HttpClient();
+    Future<int> status(String path, {String? host}) async {
+      final req = await http.getUrl(Uri.parse('http://127.0.0.1:${bridge.boundPort}$path'));
+      if (host != null) req.headers.host = host;
+      final res = await req.close();
+      await res.drain<void>();
+      return res.statusCode;
+    }
+
+    expect(await status('/state?t=ABCD2345'), 200);
+    expect(await status('/hello'), 200); // "the app runs", nothing more, and no failure counted
+    expect(await status('/state'), 401); // e.g. a web page in the phone's browser
+    expect(await status('/cmd?c=walk&t=WRONG123'), 401);
+    expect(await status('/state?t=ABCD2345', host: 'evil.example'), 403); // DNS rebinding
+    await expectLater(WebSocket.connect('ws://127.0.0.1:${bridge.boundPort}/ws'), throwsA(isA<WebSocketException>()));
+    expect(commands, isEmpty);
+    // Guessing: after maxFailures wrong codes in all, even the right one waits.
+    for (var i = 0; i < G2Bridge.maxFailures; i++) {
+      await status('/state?t=GUESS$i');
+    }
+    expect(await status('/state?t=ABCD2345'), 429);
+    http.close();
+    await bridge.stop();
+  });
+
+  test('pairing codes: 8 easy-to-read characters, typed in any case with or without the hyphen', () {
+    final code = newPairingCode(math.Random(1));
+    expect(code, matches(RegExp(r'^[A-HJKMNP-Z2-9]{8}$')));
+    expect(formatCode(code), '${code.substring(0, 4)}-${code.substring(4)}');
+    expect(normalizeCode(' ${formatCode(code).toLowerCase()} '), code);
+    expect(newPairingCode(), isNot(newPairingCode()));
   });
 
   test('vector tile: transportation lines of the drawn classes, in lat/lon', () {

@@ -6,6 +6,8 @@
 
 **Even G2**（スマートグラス）の Even Hub アプリとして動き、着信・会話・出典がメガネに出ます。Android アプリもあります。
 
+> **このブランチ（`phone-link`）** では、2つのアプリがつながります。同じスマホで Android アプリが動いていれば、メガネのアプリは単体では動かず、Android アプリの無線を表示します。Even Hub ストアに出す版は `main` ブランチで作ります（メガネのアプリはいつも単体で動きます）。このブランチからストア版のパッケージを作らないでください。
+
 | 待機 | 着信 | 会話 | 出典 |
 | --- | --- | --- | --- |
 | ![ミニマップのある待機画面](g2/store/screenshots/ja/01_waiting.png) | ![着信](g2/store/screenshots/ja/02_incoming.png) | ![顔と写真のある会話](g2/store/screenshots/ja/03_call_first.png) | ![出典と写真のクレジット](g2/store/screenshots/ja/05_sources.png) |
@@ -27,7 +29,7 @@
 
 ### Even G2（メガネ）
 
-メガネのアプリは、ほかのアプリなしで単体で動きます（iPhone・Android とも）。ビルド・インストール・使い方は [g2/README.ja.md](g2/README.ja.md) にあります。
+メガネのアプリは、ほかのアプリなしで単体で動きます（iPhone・Android とも）。このブランチでは、Android アプリと連携させることもできます（[Android アプリと連携する](g2/README.ja.md#android-アプリと連携する)を参照）。ビルド・インストール・使い方は [g2/README.ja.md](g2/README.ja.md) にあります。
 
 ### Android アプリ
 
@@ -47,6 +49,7 @@ flutter test
   - オフのときは、自治体・新聞・観光サイトなども使うので、無線が入る場所が増えます。
   - その代わり、口コミ系のサイトが混ざることがあります。
 - **連絡先（任意）**: Wikipedia と OpenStreetMap は、アプリに名乗ることを求めています。入れたメールアドレスや URL は User-Agent に入ります。
+- **Even G2 に無線を表示する**: 初期値はオンです。その下に出る**ペアリングコード**をメガネのアプリに入れるとつながります（[Android アプリと連携する](g2/README.ja.md#android-アプリと連携する)を参照）。
 - **開発モード（位置をシミュレート）**: 地図を長押しした地点を現在地にできます。エミュレーターなら `adb emu geo fix <経度> <緯度>` でも動かせます。
 
 ### PC で会話づくりだけ試す

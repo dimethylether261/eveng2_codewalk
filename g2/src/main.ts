@@ -1,6 +1,7 @@
 // CODEWALK on Even G2: shows incoming radio calls and the dialogue.
-// The walk runs inside this app (LocalLink: the Dart core in public/codewalk_core.js finds spots
-// and writes dialogues here); this file draws its state on the glasses and forwards gestures.
+// Two sources, same screens: the CODEWALK phone app when it runs on this phone (PhoneLink: it does
+// everything, this only draws and forwards gestures), otherwise the glasses app alone (LocalLink:
+// the Dart core in public/codewalk_core.js finds spots and writes dialogues here).
 import {
   CreateStartUpPageContainer,
   EventSourceType,
@@ -14,8 +15,11 @@ import {
 } from '@evenrealities/even_hub_sdk'
 import { Companion } from './companion'
 import { LANG_KEY, parseLang, renderLangBar } from './lang'
+import { PAIR_KEY, PhoneLink, phoneAppRunning, type LinkStatus } from './link'
 import { LocalLink, within } from './local'
+import { MODE_KEY, choose, parseMode, renderModeBar, type Active, type Mode } from './mode'
 import { runOnboarding } from './onboarding'
+import { PhonePage } from './phone_page'
 import { draw, pngBytes, shouldRedraw, type Drawn, type Roads } from './minimap'
 import { photoPng, portraitTone } from './photo'
 import {
@@ -38,6 +42,7 @@ import {
 
 const companion = document.getElementById('app')
 const langBar = document.getElementById('lang')
+const modeBar = document.getElementById('mode')
 
 function texts(s: Screen) {
   return s.blocks.map(
@@ -171,12 +176,12 @@ function show(next: Screen, force = false) {
 }
 
 let state: WalkState | null = null
-let lastLang: Lang = navigator.language?.startsWith('ja') ? 'ja' : 'en' // until a language is chosen
+let lastLang: Lang = navigator.language?.startsWith('ja') ? 'ja' : 'en' // until a language is chosen (or the phone app sends its own)
 // Incoming call: blink the title for a few seconds (only its text changes: no flicker).
 let ringAt = 0
 function screenNow(): Screen {
   if (state?.lang) lastLang = state.lang
-  const s = render(state, lastLang, new Date(), link?.settings.minimap ?? true)
+  const s = render(state, lastLang, new Date(), link instanceof LocalLink ? link.settings.minimap : true)
   if (s.mode !== 'incoming') ringAt = 0
   else if (!ringAt) ringAt = Date.now()
   return blink(s, ringAt ? Date.now() - ringAt : 0)
@@ -190,63 +195,108 @@ setInterval(() => {
   if (old && old.content !== clock(new Date())) show(screenNow())
 }, 1000)
 
-let link: LocalLink | null = null
+let link: PhoneLink | LocalLink | null = null
+let mode: Mode = parseMode(await within(bridge.getLocalStorage(MODE_KEY), ''))
+let active: Active = 'standalone'
+/** The pairing code for the phone app (entered on the phone page while linked). */
+let pairCode = (await within(bridge.getLocalStorage(PAIR_KEY), '')) ?? ''
 const savedLang = await within(bridge.getLocalStorage(LANG_KEY), '')
-/** The language picked on the phone page (until then: the phone's language). */
+/** The language picked on the phone page (until then: the phone's language). Linked mode uses the phone app's. */
 let chosenLang: Lang = parseLang(savedLang, lastLang)
 lastLang = chosenLang
 
-function drawLangBar() {
-  if (langBar) renderLangBar(langBar, lastLang, l => switchLang(l))
+function drawBars() {
+  if (langBar) renderLangBar(langBar, lastLang, l => switchLang(l), active === 'phone')
+  if (modeBar) renderModeBar(modeBar, mode, active, lastLang, m => switchMode(m))
 }
 
 async function switchLang(next: Lang) {
   chosenLang = lastLang = next
   await within(bridge.setLocalStorage(LANG_KEY, next), false)
-  await link?.saveSettings({ lang: next }) // conversations, glasses and the page follow
-  drawLangBar()
+  if (link instanceof LocalLink) await link.saveSettings({ lang: next }) // conversations, glasses and the page follow
+  drawBars()
   show(screenNow())
 }
 
-/** Start the walk core and the phone page (once, after the first-launch questions). */
+async function switchMode(next: Mode) {
+  mode = next
+  await within(bridge.setLocalStorage(MODE_KEY, next), false)
+  await connect()
+}
+
+/** Start the source the mode asks for (and stop the previous one): at launch and when the mode changes. */
 async function connect() {
-  let page: Companion | null = null
-  const local: LocalLink = new LocalLink(
-    bridge,
-    s => {
+  await link?.stop()
+  link = null
+  state = null
+  roads = null // the other source numbers its roads separately
+  roadsLoading = 0
+  drawn = null
+  active = await choose(mode, phoneAppRunning)
+  lastLang = chosenLang
+  if (active === 'phone') {
+    const page = companion
+      ? new PhonePage(companion, async code => {
+          pairCode = code
+          await within(bridge.setLocalStorage(PAIR_KEY, code), false)
+          await connect() // try the new code
+        })
+      : null
+    let status: LinkStatus = 'offline'
+    const phone = new PhoneLink(pairCode, (s, st) => {
+      if (link !== phone) return
       state = s
-      page?.setState(s)
+      status = st
+      page?.render(s?.lang ?? lastLang, status, pairCode)
+      drawBars()
       show(screenNow())
-    },
-    () => {
-      lastLang = local.settings.lang
-      drawLangBar()
-      page?.render()
-      show(screenNow()) // settings such as the minimap show on the glasses at once
-    },
-    lastLang,
-  )
-  if (companion) {
-    companion.className = ''
-    companion.textContent = ''
-    page = new Companion(companion, local)
+    })
+    link = phone
+    page?.render(lastLang, status, pairCode)
+    phone.start()
+  } else {
+    let page: Companion | null = null
+    const local: LocalLink = new LocalLink(
+      bridge,
+      s => {
+        if (link !== local) return
+        state = s
+        page?.setState(s)
+        show(screenNow())
+      },
+      () => {
+        if (link !== local) return
+        lastLang = local.settings.lang
+        drawBars()
+        page?.render()
+        show(screenNow()) // settings such as the minimap show on the glasses at once
+      },
+      lastLang,
+    )
+    if (companion) {
+      companion.className = ''
+      companion.textContent = ''
+      page = new Companion(companion, local)
+    }
+    link = local
+    await local.start()
+    if (local.settings.lang !== chosenLang) await local.saveSettings({ lang: chosenLang })
+    page?.render()
   }
-  link = local
-  await local.start()
-  if (local.settings.lang !== chosenLang) await local.saveSettings({ lang: chosenLang })
-  page?.render()
-  drawLangBar()
+  drawBars()
   show(screenNow(), true)
 }
 
-// First launch (no language saved yet): ask for the language before anything starts.
+// First launch (no language saved yet): ask for the language, then the mode, before anything starts.
 // (Developer builds with a fake walk, or VITE_CODEWALK_SKIP_SETUP for screenshots, skip it: the
 // simulator can't tap the phone page.)
 if (!savedLang && companion && !import.meta.env.VITE_CODEWALK_FAKE_POS && !import.meta.env.VITE_CODEWALK_SKIP_SETUP) {
   show(setupScreen())
   const first = await runOnboarding(companion, lastLang)
   chosenLang = lastLang = first.lang
+  mode = first.mode
   await within(bridge.setLocalStorage(LANG_KEY, first.lang), false)
+  await within(bridge.setLocalStorage(MODE_KEY, first.mode), false)
 }
 await connect()
 

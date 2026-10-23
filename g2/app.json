@@ -9,12 +9,14 @@
   "permissions": [
     {
       "name": "location",
-      "desc": "Finds places with a story near you while you walk."
+      "desc": "Finds places with a story near you while you walk (glasses-only mode). Not used when the CODEWALK phone app is running."
     },
     {
       "name": "network",
-      "desc": "Calls Claude (your own API key), Wikipedia/Wikidata/Wikimedia Commons, OpenStreetMap (Overpass, Nominatim, Photon) and OpenFreeMap map tiles to find places near you, draw the minimap and write the conversations.",
+      "desc": "Talks to the CODEWALK phone app on this phone (127.0.0.1) or, in glasses-only mode, calls Claude (your own API key), Wikipedia/Wikidata/Wikimedia Commons, OpenStreetMap (Overpass, Nominatim, Photon) and OpenFreeMap map tiles directly.",
       "whitelist": [
+        "http://127.0.0.1:8765",
+        "ws://127.0.0.1:8765",
         "https://api.anthropic.com",
         "https://ja.wikipedia.org",
         "https://ar.wikipedia.org",

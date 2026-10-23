@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import 'models.dart';
 
-/// The call being played on the radio screen.
+/// The call being played, shared by the phone's radio screen and the Even G2 display,
+/// so advancing on either one moves both.
 class RadioSession extends ChangeNotifier {
   Dialogue? dialogue;
   int index = 0;

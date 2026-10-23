@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'g2_bridge.dart' show newPairingCode;
 import 'l10n.dart';
 import 'log_book.dart';
 import 'models.dart';
@@ -132,6 +133,28 @@ class AppSettings extends ChangeNotifier {
       CallFrequency.values.firstWhere((e) => e.name == _prefs.getString('frequency'), orElse: () => CallFrequency.normal);
   set frequency(CallFrequency v) {
     _prefs.setString('frequency', v.name);
+    notifyListeners();
+  }
+
+  /// Serve calls to the CODEWALK app on Even G2 (local link on this phone only).
+  bool get g2Enabled => _prefs.getBool('g2Enabled') ?? true;
+  set g2Enabled(bool v) {
+    _prefs.setBool('g2Enabled', v);
+    notifyListeners();
+  }
+
+  /// The pairing code the glasses app sends with every request (made on first use).
+  String get g2Code {
+    final saved = _prefs.getString('g2Code');
+    if (saved != null && saved.isNotEmpty) return saved;
+    final code = newPairingCode();
+    _prefs.setString('g2Code', code);
+    return code;
+  }
+
+  /// A new pairing code: the glasses must be paired again.
+  void renewG2Code() {
+    _prefs.setString('g2Code', newPairingCode());
     notifyListeners();
   }
 

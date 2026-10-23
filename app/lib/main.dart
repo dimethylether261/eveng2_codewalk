@@ -83,7 +83,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       body: IndexedStack(index: tab, children: [
         WalkScreen(walk: w, log: w.log, settings: w.settings),
         LogScreen(log: w.log, session: w.session),
-        SettingsScreen(settings: w.settings, host: w.host, log: w.log, onClearCache: w.clearCache),
+        SettingsScreen(settings: w.settings, host: w.host, g2: w.g2, log: w.log, onClearCache: w.clearCache),
       ]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab,
