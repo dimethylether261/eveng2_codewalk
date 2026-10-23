@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <defs>
+    <radialGradient id="g-bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#0E2A18"/>
+      <stop offset="1" stop-color="#050B07"/>
+    </radialGradient>
+    <pattern id="p-scan" width="4" height="3" patternUnits="userSpaceOnUse">
+      <rect width="4" height="1" fill="#3CFF7A" fill-opacity="0.07"/>
+    </pattern>
+    <filter id="f-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- one shoe print, pointing up, centred on its arch -->
+    <g id="pr">
+      <ellipse cx="0" cy="-8" rx="7" ry="10.5"/>
+      <ellipse cx="0.8" cy="9" rx="5.2" ry="5"/>
+    </g>
+    <!-- three steps fading in, then the call they walked into -->
+    <g id="trail" filter="url(#f-glow)" fill="#3CFF7A">
+      <use href="#pr" transform="translate(25.1 82.6) rotate(35) scale(0.55)" fill-opacity="0.4"/>
+      <use href="#pr" transform="translate(44.6 75.5) rotate(35) scale(0.55)" fill-opacity="0.7"/>
+      <use href="#pr" transform="translate(44.5 54.7) rotate(35) scale(0.55)"/>
+      <circle cx="68" cy="33" r="4.5"/>
+      <g fill="none" stroke="#3CFF7A" stroke-width="3">
+        <circle cx="68" cy="33" r="10"/>
+        <circle cx="68" cy="33" r="16" stroke-opacity="0.5"/>
+      </g>
+    </g>
+    <g id="bg">
+      <rect width="108" height="108" fill="url(#g-bg)"/>
+      <rect width="108" height="108" fill="url(#p-scan)"/>
+    </g>
+  </defs>
+  <g transform="translate(54 54) scale(0.66) translate(-52 -54.5)"><use href="#trail"/></g>
+</svg>

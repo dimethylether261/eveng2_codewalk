@@ -1,0 +1,69 @@
+{
+  "package_id": "dev.codewalk.g2",
+  "edition": "202601",
+  "name": "CODEWALK",
+  "version": "0.2.16",
+  "min_app_version": "2.2.10",
+  "min_sdk_version": "0.0.16",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "location",
+      "desc": "Finds places with a story near you while you walk."
+    },
+    {
+      "name": "network",
+      "desc": "Calls Claude (your own API key), Wikipedia/Wikidata/Wikimedia Commons, OpenStreetMap (Overpass, Nominatim, Photon) and OpenFreeMap map tiles to find places near you, draw the minimap and write the conversations.",
+      "whitelist": [
+        "https://api.anthropic.com",
+        "https://ja.wikipedia.org",
+        "https://ar.wikipedia.org",
+        "https://bg.wikipedia.org",
+        "https://cs.wikipedia.org",
+        "https://da.wikipedia.org",
+        "https://de.wikipedia.org",
+        "https://el.wikipedia.org",
+        "https://en.wikipedia.org",
+        "https://es.wikipedia.org",
+        "https://fa.wikipedia.org",
+        "https://fi.wikipedia.org",
+        "https://fr.wikipedia.org",
+        "https://he.wikipedia.org",
+        "https://hr.wikipedia.org",
+        "https://hu.wikipedia.org",
+        "https://id.wikipedia.org",
+        "https://is.wikipedia.org",
+        "https://it.wikipedia.org",
+        "https://ko.wikipedia.org",
+        "https://ms.wikipedia.org",
+        "https://nl.wikipedia.org",
+        "https://no.wikipedia.org",
+        "https://pl.wikipedia.org",
+        "https://pt.wikipedia.org",
+        "https://ro.wikipedia.org",
+        "https://ru.wikipedia.org",
+        "https://sk.wikipedia.org",
+        "https://sl.wikipedia.org",
+        "https://sr.wikipedia.org",
+        "https://sv.wikipedia.org",
+        "https://th.wikipedia.org",
+        "https://tr.wikipedia.org",
+        "https://uk.wikipedia.org",
+        "https://vi.wikipedia.org",
+        "https://zh.wikipedia.org",
+        "https://www.wikidata.org",
+        "https://commons.wikimedia.org",
+        "https://upload.wikimedia.org",
+        "https://overpass-api.de",
+        "https://overpass.private.coffee",
+        "https://nominatim.openstreetmap.org",
+        "https://photon.komoot.io",
+        "https://tiles.openfreemap.org"
+      ]
+    }
+  ],
+  "supported_languages": [
+    "ja",
+    "en"
+  ]
+}

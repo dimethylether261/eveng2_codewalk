@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+    <title>CODEWALK</title>
+    <style>
+      :root { color-scheme: dark; } /* native controls (select, checkbox) in the dark palette */
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #050b07;
+        color: #c8ffd6;
+        font: 14px/1.5 system-ui, sans-serif;
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior: none;
+      }
+      #lang { display: grid; gap: 4px; padding: 12px 16px; border-bottom: 1px solid #1d4d2c; }
+      #lang:empty { display: none; }
+      #lang label { font-weight: 600; }
+      #lang small { color: #74c48b; font-size: 12px; }
+      #lang select { font: inherit; color: #c8ffd6; background-color: #0a1f12; border: 1px solid #2a8a4a; border-radius: 8px; padding: 9px 32px 9px 10px; -webkit-appearance: none; appearance: none; background-image: linear-gradient(45deg, transparent 50%, #3cff7a 50%), linear-gradient(135deg, #3cff7a 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
+      #app.message { display: flex; height: calc(100% - 200px); align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; text-align: center; }
+      /* The phone page: settings and the call log (companion.ts) */
+      .cw { padding: 20px 16px 40px; display: grid; gap: 14px; max-width: 560px; margin: 0 auto; }
+      .cw h1 { margin: 0; font-size: 20px; letter-spacing: .12em; color: #3cff7a; }
+      .cw h2 { margin: 12px 0 0; font-size: 16px; color: #3cff7a; }
+      .cw p { margin: 0; }
+      .cw .lead { color: #c8ffd6; }
+      .cw .note, .cw small { color: #74c48b; font-size: 12px; display: block; }
+      .cw .warn { color: #ffcf6b; }
+      .cw .walk { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #2a8a4a; border-radius: 10px; }
+      .cw .field { display: grid; gap: 4px; }
+      .cw .field > span:first-child, .cw legend { font-weight: 600; }
+      .cw .row { display: flex; gap: 8px; }
+      .cw select { -webkit-appearance: none; appearance: none; background-image: linear-gradient(45deg, transparent 50%, #3cff7a 50%), linear-gradient(135deg, #3cff7a 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%; background-size: 6px 6px; background-repeat: no-repeat; }
+      .cw input, .cw select, .cw button { font: inherit; color: #c8ffd6; background-color: #0a1f12; border: 1px solid #2a8a4a; border-radius: 8px; padding: 9px 10px; min-width: 0; }
+      .cw .row input { flex: 1; }
+      .cw button { color: #050b07; background-color: #3cff7a; border: 0; font-weight: 700; white-space: nowrap; }
+      .cw select { padding-right: 32px; } /* after the shared padding */
+      .cw fieldset { border: 1px solid #1d4d2c; border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; margin: 0; }
+      .cw .theme { display: flex; gap: 10px; align-items: flex-start; }
+      .cw .theme input { margin-top: 4px; padding: 0; }
+      .cw #cw-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+      .cw #cw-log li { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #1d4d2c; border-radius: 10px; }
+      .cw #cw-log li div { min-width: 0; }
+      .cw #cw-log li > div { display: grid; gap: 2px; flex: 1; }
+      .cw #cw-log .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+      .cw #cw-log time { color: #74c48b; font-size: 12px; white-space: nowrap; }
+      .cw #cw-log details summary { color: #74c48b; font-size: 12px; cursor: pointer; padding: 2px 0; }
+      .cw #cw-log details a { display: block; color: #74c48b; font-size: 12px; padding: 4px 0; overflow-wrap: anywhere; }
+      .cw #cw-log button { padding: 8px 12px; }
+      .cw #cw-log em { color: #ffcf6b; font-style: normal; }
+      .cw #cw-log .empty { color: #74c48b; justify-content: center; }
+      .cw .saved { display: grid; gap: 6px; justify-items: start; }
+      .cw .saved small:not(:first-child) { margin-bottom: 8px; }
+      .cw button.danger { color: #ffb4a8; background-color: transparent; border: 1px solid #a8483b; }
+      .cw.onboarding { padding-top: 48px; }
+      .cw.onboarding .lead { font-size: 18px; line-height: 1.6; }
+      .cw .choices { display: grid; gap: 12px; }
+      .cw .choices button { padding: 16px; font-size: 18px; color: #c8ffd6; background-color: #0a1f12; border: 1px solid #2a8a4a; }
+      .cw .choices button.primary { color: #050b07; background-color: #3cff7a; border: 0; }
+      .cw small a { color: #74c48b; }
+      /* Tabs (walk / call log / settings), kept in view while scrolling */
+      .cw .tabs { position: sticky; top: 0; z-index: 1; display: flex; gap: 6px; padding: 8px 0; background: #050b07; }
+      .cw .tabs button { flex: 1; color: #74c48b; background-color: transparent; border: 1px solid #1d4d2c; font-weight: 600; }
+      .cw .tabs button[aria-selected="true"] { color: #050b07; background-color: #3cff7a; border-color: #3cff7a; }
+      .cw [role="tabpanel"] { display: grid; gap: 14px; }
+      .cw .ranges { display: flex; gap: 8px; }
+      .cw .ranges button { color: #c8ffd6; background-color: #0a1f12; border: 1px solid #2a8a4a; border-radius: 999px; padding: 6px 14px; font-weight: 600; }
+      .cw .ranges button small { display: inline; color: inherit; opacity: .75; }
+      .cw .ranges button[aria-pressed="true"] { color: #050b07; background-color: #3cff7a; border-color: #3cff7a; }
+      .cw button.link { background-color: transparent; color: #74c48b; text-decoration: underline; font-weight: 400; }
+      .cw [hidden] { display: none !important; } /* over .cw small { display: block } and the like */
+      :focus-visible { outline: 2px solid #3cff7a; outline-offset: 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="lang"></div>
+    <div id="app" class="message">CODEWALK を起動しています…</div>
+    <!-- The standalone core (Dart, compiled by `npm run core`); defines createCodewalkCore. -->
+    <script src="/codewalk_core.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

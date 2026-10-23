@@ -1,0 +1,26 @@
+{
+  "name": "codewalk-g2",
+  "private": true,
+  "version": "0.2.16",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "node scripts/build_core.mjs && tsc --noEmit && vite build",
+    "test": "vitest run",
+    "simulate": "node node_modules/@evenrealities/evenhub-simulator/bin/index.js http://localhost:5173",
+    "qr": "evenhub qr --url http://$(hostname -I | cut -d' ' -f1):5173",
+    "pack": "node scripts/build_core.mjs && tsc --noEmit && vite build && evenhub pack app.json dist -o codewalk.ehpk",
+    "release": "node scripts/release.mjs",
+    "core": "node scripts/build_core.mjs"
+  },
+  "dependencies": {
+    "@evenrealities/even_hub_sdk": "^0.0.16"
+  },
+  "devDependencies": {
+    "@evenrealities/evenhub-cli": "^0.1.14",
+    "@evenrealities/evenhub-simulator": "^0.9.5",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

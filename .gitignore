@@ -1,0 +1,9 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# Secrets (subprojects ignore their own build output; see their .gitignore)
+.env
+
+# Python (app/tool)
+__pycache__/
