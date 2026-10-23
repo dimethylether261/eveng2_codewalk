@@ -7,3 +7,6 @@
 
 # Python (app/tool)
 __pycache__/
+
+# Files kept out of the repository: the store build's portraits and screenshots (see g2/README.md)
+/private/

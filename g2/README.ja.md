@@ -87,6 +87,15 @@ node scripts/release.mjs # 版を上げて（patch。minor / major も指定可�
 
 `dart` か `flutter` が PATH にないときは、`DART=/path/to/flutter/bin/dart` を付けて実行します。
 
+### 自分の肖像でパッケージを作る
+
+リポジトリの肖像は見本です。自分の肖像をコミットせずにパッケージに入れるには、次のようにします。
+
+1. リポジトリの一番上の `private/portraits/` に、同じファイル名（`commander.png`、`owl.png` など。[キャラクターの肖像](../README.ja.md#キャラクターの肖像)を参照）で置きます。`private/` は `.gitignore` で対象外になっています。
+2. `node scripts/release.mjs` を実行します。
+
+パッケージを作る前に、`dist/` の見本をこれらで置き換え、どの肖像を使ったかを表示します。`public/characters/` のファイルは変えません。足りない肖像があると止まります。別のフォルダを使うときは `CODEWALK_PORTRAITS=<フォルダ>` を付けます。`npm run pack` では、いつも見本を使います。
+
 ### 実機で試す
 
 開発中の版をメガネで試す手順:

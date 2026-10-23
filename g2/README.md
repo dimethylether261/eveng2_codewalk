@@ -84,6 +84,15 @@ node scripts/release.mjs # bump the version (patch; or minor / major), build and
 
 If `dart` or `flutter` is not on your PATH, run with `DART=/path/to/flutter/bin/dart`.
 
+### Packaging with your own portraits
+
+The repository's portraits are samples. To package your own without committing them:
+
+1. Put them in `private/portraits/` at the top of the repository, with the same file names (`commander.png`, `owl.png`, …; see [Character portraits](../README.md#character-portraits)). `private/` is in `.gitignore`.
+2. Run `node scripts/release.mjs`.
+
+It replaces the samples in `dist/` with these before packing, and says which portraits it used. The files in `public/characters/` are not touched. If any portrait is missing, it stops. To use another folder, set `CODEWALK_PORTRAITS=<dir>`. `npm run pack` always uses the samples.
+
 ### On your glasses
 
 To try a development build on your glasses:
