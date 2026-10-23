@@ -38,6 +38,8 @@ flutter build apk        # output: build/app/outputs/flutter-apk/
 flutter test
 ```
 
+To build with your own portraits in `private/portraits/` (see [Packaging with your own portraits](g2/README.md#packaging-with-your-own-portraits)), run `dart run tool/build_apk.dart` instead of `flutter build apk`. It takes the same options (such as `--build-name=0.2.17`) and puts the samples in `assets/characters/` back after the build.
+
 In the app's Settings:
 
 - **Claude API**: enter your key and tap "Save and check". The key is stored in the Android Keystore.

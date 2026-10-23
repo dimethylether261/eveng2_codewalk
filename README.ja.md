@@ -40,6 +40,8 @@ flutter build apk        # 出力先: build/app/outputs/flutter-apk/
 flutter test
 ```
 
+`private/portraits/` に置いた自分の肖像でビルドするには（[自分の肖像でパッケージを作る](g2/README.ja.md#自分の肖像でパッケージを作る)を参照）、`flutter build apk` の代わりに `dart run tool/build_apk.dart` を実行します。同じオプション（`--build-name=0.2.17` など）が使えます。ビルド後、`assets/characters/` のサンプルは元に戻ります。
+
 アプリの「設定」で設定する項目:
 
 - **Claude API**: キーを入れて「保存して確認」を押します。キーは Android の Keystore に保存されます。
