@@ -993,12 +993,12 @@ void main() {
     });
 
     test('each generation reports its outcome, cost per step and research yield (the walk log)', () async {
-      Future<Json> generationEvent(FakeClaude f) async {
+      Future<Json> generationEvent(FakeClaude f, {EngineConfig config = const EngineConfig(escalateResearchModel: '')}) async {
         final events = <Json>[];
         final e = Engine(
           store: await openStore(null),
           apiKey: 'x',
-          config: const EngineConfig(escalateResearchModel: ''),
+          config: config,
           userAgent: 'test',
           client: fakeHttp(f),
           log: (_) {},
@@ -1014,6 +1014,13 @@ void main() {
       expect(ready['outcome'], 'ready');
       expect(ready['generated_at'], isA<String>());
       expect(ready['prefetch'], isFalse);
+      expect(ready['started'], isA<String>());
+      expect((ready['spot'] as Map)['lat'], isA<num>());
+      final first = (ready['drafts'] as List).single as Map;
+      expect(first['stage'], 'first');
+      expect(first['chosen'], isTrue);
+      expect(first['facts'], hasLength(2));
+      expect((first['lines'] as List).first, containsPair('speaker', commander.id));
       final steps = ((ready['usage'] as Map)['steps'] as List).cast<Json>();
       expect(steps.map((s) => s['step']), containsAllInOrder(['research', 'dialogue', 'check', 'review']));
       expect(steps.first['facts'], 2);
@@ -1024,6 +1031,17 @@ void main() {
       final none = await generationEvent(FakeClaude(blocks: factsBlocks(1)));
       expect(none, containsPair('reason', 'insufficient_sources'));
       expect((((none['usage'] as Map)['steps'] as List).single as Map)['facts'], 1);
+      expect(((none['drafts'] as List).single as Map)['facts'], hasLength(1));
+
+      // Below the bar with the cheap model's facts: both conversations are kept, the better one chosen.
+      final escalated = await generationEvent(FakeClaude(blocks: factsBlocks(4), reviewScores: [3, 3, 5], strong: factsBlocks(6)),
+          config: const EngineConfig(reviewRewrites: 1));
+      final drafts = (escalated['drafts'] as List).cast<Map>();
+      expect(drafts.map((d) => d['stage']), ['before_escalation', 'after_escalation']);
+      expect(drafts.map((d) => d['research_model']), ['claude-haiku-5-5', 'claude-sonnet-5-5']);
+      expect(drafts.map((d) => (d['facts'] as List).length), [4, 6]);
+      expect(drafts.map((d) => d['chosen']), [null, true]);
+      expect(drafts.every((d) => (d['lines'] as List).isNotEmpty && d['review'] != null), isTrue);
     });
 
     test('a key that checks out clears earlier bad_key failures', () async {

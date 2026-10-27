@@ -284,35 +284,56 @@ extension<T> on List<T> {
 
 double _score(Draft? d) => d == null ? -1.0 : ((d.$2?['score'] ?? 3.0) as num).toDouble();
 
+/// One step of [generate] for the walk log: the facts it wrote from and the conversation it got (if any).
+Json _draftLog(String stage, String researchModel, List<Json> facts, Draft? d) => {
+      'stage': stage,
+      'research_model': researchModel,
+      'facts': [for (final f in facts) f['claim']],
+      if (d != null) 'lines': [for (final l in d.$1) {'speaker': l['speaker'], 'text': l['text']}],
+      if (d?.$2 != null) 'review': d!.$2,
+    };
+
 /// [told]: what was said at this place before (a revisit): research and writing look for something else.
 /// [lang]: language of the dialogue ('ja' or 'en'). Research reads sources in any language (the local
 /// Wikipedia abroad, web pages) and writes the fact cards in Japanese either way.
+/// [drafts]: gets what was tried, before and after escalating to the stronger research model
+/// (stages 'first', 'before_escalation', 'after_escalation'; the one used is marked 'chosen').
 Future<Json> generate(Claude llm, Json spot, String theme,
-    {Json? image, List<String> told = const [], String lang = 'ja'}) async {
+    {Json? image, List<String> told = const [], String lang = 'ja', List<Json>? drafts}) async {
   final c = llm.config;
   final specialist = specialists[theme]!;
   final canEscalate = c.escalateResearchModel.isNotEmpty && c.escalateResearchModel != c.researchModel;
   var escalated = false;
 
   var (facts, sources) = await collectFacts(llm, spot, theme, told: told);
+  var factsModel = c.researchModel;
   // Few facts from the cheap model: look again with the stronger one before writing anything.
   if (canEscalate && facts.length < c.escalateMinFacts) {
     final (f2, s2) = await collectFacts(llm, spot, theme, model: c.escalateResearchModel, told: told);
     escalated = true;
-    if (f2.length > facts.length) (facts, sources) = (f2, s2);
+    drafts?.add(_draftLog('before_escalation', c.researchModel, facts, null));
+    if (f2.length > facts.length) (facts, sources, factsModel) = (f2, s2, c.escalateResearchModel);
   }
-  if (facts.length < c.minFacts) throw Unavailable('insufficient_sources');
+  if (facts.length < c.minFacts) {
+    drafts?.add(_draftLog(escalated ? 'after_escalation' : 'first', factsModel, facts, null));
+    throw Unavailable('insufficient_sources');
+  }
 
   var result = await writeDialogue(llm, spot, specialist, facts, told: told, lang: lang);
+  var chosen = _draftLog(escalated ? 'after_escalation' : 'first', factsModel, facts, result);
+  drafts?.add(chosen);
   // Still below the bar with the cheap model's facts: richer facts from the stronger model, one more try.
   if (canEscalate && !escalated && c.reviewEnabled && _score(result) < c.reviewThreshold) {
     final (f2, s2) = await collectFacts(llm, spot, theme, model: c.escalateResearchModel, told: told);
     escalated = true;
-    if (f2.length >= c.minFacts) {
-      final result2 = await writeDialogue(llm, spot, specialist, f2, told: told, lang: lang);
-      if (_score(result2) > _score(result)) (result, facts, sources) = (result2, f2, s2);
-    }
+    chosen['stage'] = 'before_escalation';
+    Draft? result2;
+    if (f2.length >= c.minFacts) result2 = await writeDialogue(llm, spot, specialist, f2, told: told, lang: lang);
+    final after = _draftLog('after_escalation', c.escalateResearchModel, f2, result2);
+    drafts?.add(after);
+    if (_score(result2) > _score(result)) (result, facts, sources, chosen) = (result2, f2, s2, after);
   }
+  if (result != null) chosen['chosen'] = true;
   if (result == null) throw Unavailable('check_failed');
   final (lines, review) = result;
   review?['escalated'] = escalated;

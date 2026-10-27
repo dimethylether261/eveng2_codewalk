@@ -239,7 +239,8 @@ class Engine {
     } finally {
       onEvent?.call({
         'type': 'discover',
-        'spot': {'id': id, 'name': town['name']},
+        'spot': {'id': id, 'name': town['name'], 'lat': town['lat'], 'lon': town['lon']},
+        'started': started.toUtc().toIso8601String(),
         ...event,
         'ms': DateTime.now().difference(started).inMilliseconds,
         'usage': usage.summary(),
@@ -321,13 +322,15 @@ class Engine {
     final usage = Usage();
     DateTime? started;
     Json? event;
+    final drafts = <Json>[];
     try {
       if (job.cancelled) return; // moved to the fast lane while waiting
       job.started = true;
       started = DateTime.now();
       try {
         final image = await fetchImage(_http, spot['wikidata'] as String?, userAgent);
-        final dialogue = await pipeline.generate(llm.withUsage(usage), spot, theme, image: image, told: told, lang: lang);
+        final dialogue = await pipeline.generate(llm.withUsage(usage), spot, theme,
+            image: image, told: told, lang: lang, drafts: drafts);
         dialogue['usage'] = usage.summary();
         store.putDialogue(spot['id'] as String, slot, 'ready', dialogue: dialogue);
         event = {
@@ -357,11 +360,19 @@ class Engine {
       if (started != null) {
         onEvent?.call({
           'type': 'generation',
-          'spot': {'id': spot['id'], 'name': spot['name'], 'kind': spot['kind'] ?? 'spot'},
+          'spot': {
+            'id': spot['id'],
+            'name': spot['name'],
+            'kind': spot['kind'] ?? 'spot',
+            'lat': spot['lat'],
+            'lon': spot['lon'],
+          },
           'theme': theme,
           'slot': slot,
           'prefetch': !job.urgent,
+          'started': started.toUtc().toIso8601String(),
           ...?event,
+          if (drafts.isNotEmpty) 'drafts': drafts,
           'ms': DateTime.now().difference(started).inMilliseconds,
           'usage': usage.summary(),
         });

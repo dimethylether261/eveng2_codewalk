@@ -10,7 +10,8 @@ import 'engine/util.dart';
 /// phone, for improving the app later. It holds the route, what the radio did, and each conversation's
 /// generation (outcome, time taken, API usage). The settings screen shares or deletes the files.
 ///
-/// Each line is `{"t": <UTC ISO 8601>, "type": ..., ...}`.
+/// Each line is `{"t": <UTC ISO 8601>, "type": ..., ...}`. Every event but `pos` also carries
+/// `user`: where the walker was then (the latest `pos`, with its age in seconds).
 class WalkLog extends ChangeNotifier {
   WalkLog(this.dir, this._enabled);
 
@@ -18,6 +19,7 @@ class WalkLog extends ChangeNotifier {
   final bool Function() _enabled;
   File? _file;
   Future<void> _writes = Future.value();
+  ({double lat, double lon, DateTime at})? _lastPos;
 
   static Future<WalkLog> create(bool Function() enabled) async {
     final docs = await getApplicationDocumentsDirectory();
@@ -37,7 +39,22 @@ class WalkLog extends ChangeNotifier {
   void event(String type, [Json data = const {}, DateTime? now]) {
     final f = _file;
     if (f == null || !_enabled()) return;
-    final line = jsonEncode({...data, 't': (now ?? DateTime.now()).toUtc().toIso8601String(), 'type': type});
+    final at = now ?? DateTime.now();
+    final pos = _lastPos;
+    if (type == 'pos') _lastPos = (lat: (data['lat'] as num).toDouble(), lon: (data['lon'] as num).toDouble(), at: at);
+    final String line;
+    try {
+      line = jsonEncode({
+        ...data,
+        if (type != 'pos' && pos != null)
+          'user': {'lat': pos.lat, 'lon': pos.lon, 'age_s': at.difference(pos.at).inSeconds},
+        't': at.toUtc().toIso8601String(),
+        'type': type,
+      });
+    } catch (e) {
+      debugPrint('walk log: $type not written ($e)'); // e.g. a NaN: never break the walk for the log
+      return;
+    }
     _writes = _writes
         .then((_) async {
           await dir.create(recursive: true);

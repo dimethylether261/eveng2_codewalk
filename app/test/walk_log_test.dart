@@ -23,6 +23,8 @@ void main() {
     expect(lines.first['lang'], 'ja');
     expect(lines.first['t'], endsWith('Z'));
     expect(lines[1]['lon'], 139.7);
+    expect(lines[0].containsKey('user'), isFalse); // no position yet
+    expect(lines[2]['user'], {'lat': 35.6, 'lon': 139.7, 'age_s': 0}); // where the walker was
 
     log.startWalk({}, now: DateTime(2026, 10, 24, 18));
     expect(await log.files(), hasLength(2));

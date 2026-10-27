@@ -454,6 +454,8 @@ class WalkController extends ChangeNotifier {
         'spot': d.spotId,
         'name': d.spotName,
         'theme': d.theme,
+        'spot_lat': d.lat.isNaN ? null : d.lat,
+        'spot_lon': d.lon.isNaN ? null : d.lon,
         'generated_at': d.generatedAt,
         'usd': d.usd,
       };
